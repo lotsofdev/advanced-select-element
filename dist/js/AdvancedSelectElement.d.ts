@@ -1,5 +1,10 @@
 import __LitElement from '@lotsof/lit-element';
+import { PropertyValueMap } from 'lit';
 import '../../src/css/advancedSelectElement.css';
+export interface IAdvancesSelectElementItemsFunctionApi {
+    search: string;
+    items: any[];
+}
 export interface IAdvancesSelectElementClasses {
     container?: string;
     input?: string;
@@ -33,9 +38,12 @@ export interface IAdvancesSelectElementApi {
  * @feature           Fully customizable
  * @feature           Built-in search
  *
- * @event           s-filtrable-input.items              Dispatched when the items are setted of updated
- * @event           s-filtrable-input.select                Dispatched when an item has been selected
- * @event           s-filtrable-input                       Dispatched for every events of this component. Check the detail.eventType prop for event type
+ * @event           advancedSelect.items                Dispatched when the items are setted of updated
+ * @event           advancedSelect.select               Dispatched when an item has been selected
+ * @event           advancedSelect.close                Dispatched when the dropdown is closed
+ * @event           advancedSelect.open                 Dispatched when the dropdown is opened
+ * @event           advancedSelect.reset                Dispatched when the input is resetted
+ * @event           advancedSelect.loading              Dispatched when the element enterd in loading state
  *
  *
  * @support         chromium
@@ -43,27 +51,27 @@ export interface IAdvancesSelectElementApi {
  * @support         safari
  * @support         edge
  *
- * @import          import { define as __AdvancedSelectElementDefine } from '@lotsof/s-filtrable-input-component';
+ * @import          import { define as __AdvancedSelectElementDefine } from '@lotsof/advancedSelect-component';
  *
  * @snippet         __AdvancedSelectElementDefine($1)
  *
  * @install           shell
- * npm i @lotsof/s-filtrable-input-component
+ * npm i @lotsof/advancedSelect-component
  *
  * @install           js
- * import { define as __AdvancedSelectElementDefine } from '@lotsof/s-filtrable-input-component';
+ * import { define as __AdvancedSelectElementDefine } from '@lotsof/advancedSelect-component';
  * __AdvancedSelectElementDefine();
  *
  * @example         html            Simple example
  * <template id="items">
  *   [{"title":"Hello","value":"hello"},{"title":"world","value":"world"}]
  * </template>
- * <s-filtrable-input items="#items" label="title" filtrable="title">
+ * <advancedSelect items="#items" label="title" filtrable="title">
  *   <input type="text" class="s-input" placeholder="Type something..." />
- * </s-filtrable-input>
+ * </advancedSelect>
  *
  * @example         js
- * import { define } from '@lotsof/s-filtrable-input-component';
+ * import { define } from '@lotsof/advancedSelect-component';
  * define();
  *
  * @example         html        Custom templates and items
@@ -72,7 +80,7 @@ export interface IAdvancesSelectElementApi {
  * </my-cool-filtrable-input>
  *
  * @example         js
- * import { define } from '@lotsof/s-filtrable-input-component';
+ * import { define } from '@lotsof/advancedSelect-component';
  * define({
  *     items: async () => {
  *         // you can get your items however you want
@@ -114,7 +122,11 @@ export default class AdvancedSelectElement extends __LitElement {
     private _displayedMaxItems;
     private _searchValue;
     private _items;
-    items: any[] | Function;
+    private _filteredItems;
+    private _preselectedItems;
+    private _selectedItems;
+    private _isLoading;
+    items: any[] | ((api: IAdvancesSelectElementItemsFunctionApi) => any[]);
     value: string | Function;
     label: string | Function;
     showKeywords: boolean;
@@ -126,8 +138,6 @@ export default class AdvancedSelectElement extends __LitElement {
     templates?: (api: IAdvancesSelectElementApi) => any;
     closeTimeout: number;
     interactive: boolean;
-    closeOnSelect: boolean;
-    resetOnSelect: boolean;
     notSelectable: boolean;
     maxItems: number;
     classes: IAdvancesSelectElementClasses;
@@ -137,28 +147,27 @@ export default class AdvancedSelectElement extends __LitElement {
     private _$dropdown;
     private _$input;
     private _$form?;
-    private _preselectedItems;
-    private _selectedItems;
-    private _filteredItems;
     private _templatesFromHtml;
     private _baseTemplates;
-    private _isLoading;
     constructor();
     mount(): Promise<void>;
+    _loadingTimeout: any;
+    protected updated(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void;
     firstUpdated(): Promise<void>;
     _grabTemplates(): void;
     _renderTemplate(api: Partial<IAdvancesSelectElementApi>): any;
     validate(): void;
     validateAndClose(): void;
+    resetPreselected(): void;
     resetSelected(): void;
     reset(): void;
-    open(): void;
+    open(): Promise<void>;
     close(): void;
     refreshItems(): Promise<void>;
-    _filterItems(needUpdate?: boolean): Promise<void>;
+    _filterItems(): Promise<void>;
     preselectAndValidate(item: any): void;
     preselectValidateAndClose(item: any): void;
-    _setPreselectedItem(item: any): void;
+    preselect(item: any): void;
     _updateListSizeAndPosition(): void;
     /**
      * This function just remove a keyword from the input and filter the items again

@@ -1,12 +1,10 @@
 import __LitElement from '@lotsof/lit-element';
 // @TODO            check why import does not work
 // @ts-ignore
-import { __isFocusWithin, __isPlainObject } from '@lotsof/sugar/is';
-import { html } from 'lit';
+import { __isFocusWithin } from '@lotsof/sugar/is';
+import { PropertyValueMap, html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-
-import { __cursorToEnd } from '@lotsof/sugar/dom';
 
 import { __escapeQueue } from '@lotsof/sugar/keyboard';
 
@@ -20,6 +18,11 @@ import {
 } from '@lotsof/sugar/dom';
 
 import { __stripTags } from '@lotsof/sugar/html';
+
+export interface IAdvancesSelectElementItemsFunctionApi {
+  search: string;
+  items: any[];
+}
 
 export interface IAdvancesSelectElementClasses {
   container?: string;
@@ -56,9 +59,12 @@ export interface IAdvancesSelectElementApi {
  * @feature           Fully customizable
  * @feature           Built-in search
  *
- * @event           s-filtrable-input.items              Dispatched when the items are setted of updated
- * @event           s-filtrable-input.select                Dispatched when an item has been selected
- * @event           s-filtrable-input                       Dispatched for every events of this component. Check the detail.eventType prop for event type
+ * @event           advancedSelect.items                Dispatched when the items are setted of updated
+ * @event           advancedSelect.select               Dispatched when an item has been selected
+ * @event           advancedSelect.close                Dispatched when the dropdown is closed
+ * @event           advancedSelect.open                 Dispatched when the dropdown is opened
+ * @event           advancedSelect.reset                Dispatched when the input is resetted
+ * @event           advancedSelect.loading              Dispatched when the element enterd in loading state
  *
  *
  * @support         chromium
@@ -66,27 +72,27 @@ export interface IAdvancesSelectElementApi {
  * @support         safari
  * @support         edge
  *
- * @import          import { define as __AdvancedSelectElementDefine } from '@lotsof/s-filtrable-input-component';
+ * @import          import { define as __AdvancedSelectElementDefine } from '@lotsof/advancedSelect-component';
  *
  * @snippet         __AdvancedSelectElementDefine($1)
  *
  * @install           shell
- * npm i @lotsof/s-filtrable-input-component
+ * npm i @lotsof/advancedSelect-component
  *
  * @install           js
- * import { define as __AdvancedSelectElementDefine } from '@lotsof/s-filtrable-input-component';
+ * import { define as __AdvancedSelectElementDefine } from '@lotsof/advancedSelect-component';
  * __AdvancedSelectElementDefine();
  *
  * @example         html            Simple example
  * <template id="items">
  *   [{"title":"Hello","value":"hello"},{"title":"world","value":"world"}]
  * </template>
- * <s-filtrable-input items="#items" label="title" filtrable="title">
+ * <advancedSelect items="#items" label="title" filtrable="title">
  *   <input type="text" class="s-input" placeholder="Type something..." />
- * </s-filtrable-input>
+ * </advancedSelect>
  *
  * @example         js
- * import { define } from '@lotsof/s-filtrable-input-component';
+ * import { define } from '@lotsof/advancedSelect-component';
  * define();
  *
  * @example         html        Custom templates and items
@@ -95,7 +101,7 @@ export interface IAdvancesSelectElementApi {
  * </my-cool-filtrable-input>
  *
  * @example         js
- * import { define } from '@lotsof/s-filtrable-input-component';
+ * import { define } from '@lotsof/advancedSelect-component';
  * define({
  *     items: async () => {
  *         // you can get your items however you want
@@ -143,14 +149,28 @@ export default class AdvancedSelectElement extends __LitElement {
   @state()
   private _items: any[] = [];
 
+  @state()
+  private _filteredItems: any[] = [];
+
+  @state()
+  private _preselectedItems: any[] = [];
+
+  @state()
+  private _selectedItems: any[] = [];
+
+  @state()
+  private _isLoading: boolean = false;
+
   @property()
-  public items: any[] | Function = [];
+  public items:
+    | any[]
+    | ((api: IAdvancesSelectElementItemsFunctionApi) => any[]) = [];
 
   @property()
   public value: string | Function = 'value';
 
   @property()
-  public label: string | Function = 'value';
+  public label: string | Function = 'label';
 
   @property()
   public showKeywords: boolean = false;
@@ -180,12 +200,6 @@ export default class AdvancedSelectElement extends __LitElement {
   public interactive: boolean = true;
 
   @property()
-  public closeOnSelect: boolean = true;
-
-  @property()
-  public resetOnSelect: boolean = true;
-
-  @property()
   public notSelectable: boolean = false;
 
   @property()
@@ -202,12 +216,8 @@ export default class AdvancedSelectElement extends __LitElement {
   private _$dropdown: HTMLElement = document.createElement('div');
   private _$input: HTMLInputElement = document.createElement('input');
   private _$form?: HTMLFormElement;
-  private _preselectedItems: any[] = [];
-  private _selectedItems: any[] = [];
-  private _filteredItems: any[] = [];
   private _templatesFromHtml: Record<string, string> = {};
   private _baseTemplates = (api: IAdvancesSelectElementApi): any => {};
-  private _isLoading: boolean = false;
 
   constructor() {
     super({
@@ -232,44 +242,16 @@ export default class AdvancedSelectElement extends __LitElement {
       );
     }
 
-    if (this.items) {
-      if (typeof this.items === 'string') {
-        try {
-          this._items = JSON.parse(this.items);
-        } catch (e) {
-          const $itemsElm: HTMLElement | null = document.querySelector(
-            this.items,
-          );
-          if ($itemsElm) {
-            this._items = JSON.parse((<HTMLElement>$itemsElm).innerHTML.trim());
-          }
-        }
-      } else if (typeof this.items === 'function') {
-        this._items = await this.items({});
-      } else {
-        this._items = this.items;
-      }
-
-      this.requestUpdate();
-      this.dispatch('items', {
-        detail: {
-          items: this._items,
-        },
-      });
-    }
-
     // @ts-ignore
     this._baseTemplates = ({ type, item, html }) => {
       switch (type) {
         case 'item':
           return html`
-            <div class="${this.cls('_item')}">
-              ${unsafeHTML(
-                typeof this.label === 'function'
-                  ? this.label({ item })
-                  : item[this.label],
-              )}
-            </div>
+            ${unsafeHTML(
+              typeof this.label === 'function'
+                ? this.label({ item })
+                : item[this.label],
+            )}
           `;
           break;
         case 'empty':
@@ -293,6 +275,40 @@ export default class AdvancedSelectElement extends __LitElement {
     }
   }
 
+  _loadingTimeout: any;
+  protected updated(
+    changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>,
+  ): void {
+    if (changedProperties.has('_isLoading')) {
+      clearTimeout(this._loadingTimeout);
+      if (this._isLoading) {
+        this._loadingTimeout = setTimeout(() => {
+          if (this._isLoading) {
+            this.dispatch('loading');
+          }
+        }, 500);
+      } else {
+        this.dispatch('loaded');
+      }
+    }
+
+    if (this._isLoading) {
+      this.classList.add('-loading');
+    } else {
+      this.classList.remove('-loading');
+    }
+    if (!this._filteredItems.length) {
+      this.classList.add('-empty');
+    } else {
+      this.classList.remove('-empty');
+    }
+    if (this.inline) {
+      this.classList.add('-inline');
+    } else {
+      this.classList.remove('-inline');
+    }
+  }
+
   async firstUpdated() {
     // input
     this._$input =
@@ -312,16 +328,32 @@ export default class AdvancedSelectElement extends __LitElement {
     // grab templates
     this._grabTemplates();
 
-    // @ts-ignore
-    this._$input.addEventListener('keyup', (e) => {
+    // handle update on key event
+    this._$input.addEventListener('keyup', async (e) => {
       if (!this.isActive()) {
         return;
       }
+
+      // nothing has changed
+      if (this._searchValue === (<HTMLInputElement>e.target).value) {
+        return;
+      }
+
       const value = (<HTMLInputElement>e.target).value;
       this._searchValue = value;
       this._displayedMaxItems = this.maxItems;
-      this._filterItems();
+
+      // if passed a function to the items property,
+      // we refresh the items at eash keystroke
+      if (typeof this.items === 'function') {
+        await this.refreshItems();
+      } else {
+        // just filterinf the current items
+        this._filterItems();
+      }
     });
+
+    // handle update on focus
     this._$input.addEventListener('focus', (e) => {
       if (!this.isActive()) {
         return;
@@ -329,41 +361,41 @@ export default class AdvancedSelectElement extends __LitElement {
       const value = (<HTMLInputElement>e.target).value;
       this._searchValue = value;
       this.open();
-      this._filterItems();
       this._updateListSizeAndPosition();
     });
 
-    // @ts-ignore
+    // input class
     this._$input.classList.add(...this.cls('_input').split(' '));
     if (this.classes.input) {
       this._$input.classList.add(this.classes.input);
     }
 
+    // container class
     this._$container = this;
     this._$container.classList.add(...this.cls().split(' '));
     if (this.classes.container) {
       this._$container.classList.add(this.classes.container);
     }
+
+    // get the list and the dropdown
     this._$list = this.querySelector('ul') as HTMLUListElement;
     this._$dropdown = this.querySelector(
       `.${this.cls('_dropdown')}`,
     ) as HTMLElement;
 
-    // this.prepend(this._$input);
-    this._filterItems();
-
+    // handle scroll behaviors
     document.addEventListener('scroll', () => {
       this._updateListSizeAndPosition();
     });
     this._updateListSizeAndPosition();
-
     __onScrollEnd(this._$list, () => {
       this._displayedMaxItems = (this._displayedMaxItems ?? 0) + this.maxItems;
-      this._filterItems(false);
+      this._filterItems();
     });
 
+    // handle up arrow
     document.addEventListener('keyup', (e) => {
-      if (e.key !== 'Up') {
+      if (e.key !== 'ArrowUp') {
         return;
       }
 
@@ -395,8 +427,9 @@ export default class AdvancedSelectElement extends __LitElement {
       (<HTMLElement>$item).focus();
     });
 
+    // handle down arrow
     document.addEventListener('keyup', (e) => {
-      if (e.key !== 'Down') {
+      if (e.key !== 'ArrowDown') {
         return;
       }
 
@@ -427,8 +460,9 @@ export default class AdvancedSelectElement extends __LitElement {
       (<HTMLElement>$item).focus();
     });
 
+    // handle return key
     document.addEventListener('keyup', (e) => {
-      if (e.key !== 'Escape') {
+      if (e.key !== 'Enter') {
         return;
       }
 
@@ -445,8 +479,6 @@ export default class AdvancedSelectElement extends __LitElement {
     // open if a value exists
     if (this._$input.value) {
       this._searchValue = this._$input.value;
-      // __cursorToEnd(this._$input);
-      this._filterItems(true);
     }
   }
 
@@ -503,7 +535,7 @@ export default class AdvancedSelectElement extends __LitElement {
     if (!item.preventSet) {
       if (typeof value !== 'string') {
         throw new Error(
-          `<red>[s-filtrable-input]</red> Sorry but the returned value "<yellow>${value}</yellow>" has to be a string...`,
+          `<red>[advancedSelect]</red> Sorry but the returned value "<yellow>${value}</yellow>" has to be a string...`,
         );
       }
       (<HTMLInputElement>this._$input).value = __stripTags(value);
@@ -536,16 +568,6 @@ export default class AdvancedSelectElement extends __LitElement {
 
     // @ts-ignore
     this.requestUpdate();
-
-    // close on select if needed
-    if (this.closeOnSelect && !item.preventClose) {
-      this.close();
-    }
-
-    // reset on select
-    if (this.resetOnSelect && !item.preventReset) {
-      this.reset();
-    }
   }
   validateAndClose() {
     this.validate();
@@ -553,52 +575,71 @@ export default class AdvancedSelectElement extends __LitElement {
       this.close();
     }, this.closeTimeout);
   }
-  resetSelected() {
+  resetPreselected() {
     this._preselectedItems = [];
+    this.requestUpdate();
+  }
+  resetSelected() {
+    this.resetPreselected();
     this._selectedItems = [];
+    this.requestUpdate();
   }
   reset() {
     this.resetSelected();
     this._$input.value = '';
     this._searchValue = '';
     this._filterItems();
+    this.dispatch('reset');
   }
-  open() {
+  async open() {
     __escapeQueue(() => {
       if (!this.isActive()) return;
+      this.resetPreselected();
       this.close();
     });
+    await this.refreshItems();
+    this.dispatch('open');
   }
   close() {
-    __cursorToEnd(this._$input);
-    this._$input.blur();
+    (<HTMLElement>document.activeElement)?.blur();
+    this.dispatch('close');
   }
   async refreshItems() {
-    if (typeof this.items === 'function') {
-      this._isLoading = true;
-      this.requestUpdate();
-      const items = await this.items({
-        value: (<HTMLInputElement>this._$input).value,
-      });
-      if (__isPlainObject(items)) {
-        this._items = Object.values(items);
-      } else if (Array.isArray(items)) {
-        // @ts-ignore
-        this._items = items;
+    this._isLoading = true;
+
+    if (this.items) {
+      if (typeof this.items === 'string') {
+        try {
+          this._items = JSON.parse(this.items);
+        } catch (e) {
+          const $itemsElm: HTMLElement | null = document.querySelector(
+            this.items,
+          );
+          if ($itemsElm) {
+            this._items = JSON.parse((<HTMLElement>$itemsElm).innerHTML.trim());
+          }
+        }
+      } else if (typeof this.items === 'function') {
+        this._items = await this.items({
+          search: this._searchValue,
+          items: this._items,
+        });
       } else {
-        throw new Error(`Sorry but the "items" MUST be an Array...`);
+        this._items = this.items;
       }
-      this.requestUpdate();
-      // @ts-ignore
+
       this.dispatch('items', {
         detail: {
           items: this._items,
         },
       });
     }
+    await this._filterItems();
+
+    this._isLoading = false;
   }
-  async _filterItems(needUpdate = true) {
-    if (needUpdate) await this.refreshItems();
+  async _filterItems() {
+    this._isLoading = true;
 
     // reset selected
     this.resetSelected();
@@ -625,8 +666,26 @@ export default class AdvancedSelectElement extends __LitElement {
 
         let matchFilter = false;
         for (let i = 0; i < Object.keys(item).length; i++) {
-          const propName = Object.keys(item)[i],
-            propValue = item[propName];
+          const propName = Object.keys(item)[i];
+
+          if (propName.startsWith('_')) {
+            continue;
+          }
+
+          const propValue = __stripTags(item[propName]);
+
+          // store original value
+          if (!item._original) {
+            Object.defineProperty(item, `_original`, {
+              value: {},
+              writable: true,
+              configurable: false,
+              enumerable: false,
+            });
+          }
+          if (!item[`_original`][propName]) {
+            item[`_original`][propName] = item[propName];
+          }
 
           // prevent not string value
           if (typeof propValue !== 'string') continue;
@@ -640,22 +699,21 @@ export default class AdvancedSelectElement extends __LitElement {
 
             if (propValue.match(reg)) {
               matchFilter = true;
-              // if (_searchValue && _searchValue !== '') {
-              //     const reg = new RegExp(
-              //         _searchValue.split(' ').join('|'),
-              //         'gi',
-              //     );
-              //     const finalString = propValue.replace(
-              //         reg,
-              //         (str) => {
-              //             return `<span class="${this.cls(
-              //                 '_list-item-highlight',
-              //             )} s-highlight"
-              //                         >${str}</span>`;
-              //         },
-              //     );
-              //     item[propName] = finalString;
-              // }
+              if (_searchValue && _searchValue !== '') {
+                const reg = new RegExp(_searchValue.split(' ').join('|'), 'gi');
+                const finalString = item._original[propName].replace(
+                  reg,
+                  (str) => {
+                    return `<span class="${this.cls('_highlight')}"
+                                      >${str}</span>`;
+                  },
+                );
+                item[propName] = finalString;
+              } else {
+                item[propName] = item._original[propName];
+              }
+            } else {
+              item[propName] = item._original[propName];
             }
           }
         }
@@ -667,29 +725,29 @@ export default class AdvancedSelectElement extends __LitElement {
     }
 
     this._filteredItems = _filteredItems;
+
     this._isLoading = false;
-    this.requestUpdate();
   }
   preselectAndValidate(item) {
-    this._setPreselectedItem(item);
-    // validate
+    this.preselect(item);
     this.validate();
   }
   preselectValidateAndClose(item) {
-    // set the selected idx
-    this._setPreselectedItem(item);
-    // validate
+    this.preselect(item);
     this.validateAndClose();
   }
-  _setPreselectedItem(item) {
+  preselect(item) {
     // check if the component is in not selectable mode
     if (this.notSelectable) return;
-    !this._preselectedItems.includes(item) && this._preselectedItems.push(item);
+    if (!this._preselectedItems.includes(item)) {
+      this._preselectedItems.push(item);
+    }
     this.requestUpdate();
   }
   _updateListSizeAndPosition() {
-    //   if (!__isFocus(this._$input)) return;
     if (!this.isActive() || this.inline) return;
+
+    if (!this._$dropdown) return;
 
     const marginTop = __getStyleProperty(this._$dropdown, 'marginTop'),
       marginBottom = __getStyleProperty(this._$dropdown, 'marginBottom');
@@ -700,12 +758,12 @@ export default class AdvancedSelectElement extends __LitElement {
     let maxHeight;
 
     if (distanceTop > distanceBottom) {
-      this._$container.classList.add('s-filtrable-input--top');
+      this._$container.classList.add('-top');
       this._$dropdown.style.top = `auto`;
       this._$dropdown.style.bottom = `calc(100% - ${marginBottom})`;
       maxHeight = distanceTop - parseInt(marginTop);
     } else {
-      this._$container.classList.remove('s-filtrable-input--top');
+      this._$container.classList.remove('-top');
       this._$dropdown.style.bottom = `auto`;
       this._$dropdown.style.top = `calc(100% - ${marginTop})`;
       maxHeight = distanceBottom - parseInt(marginBottom);
@@ -725,7 +783,6 @@ export default class AdvancedSelectElement extends __LitElement {
     this._$input.value = newValue;
     this._searchValue = newValue;
     this._filterItems();
-    __cursorToEnd(this._$input);
   }
 
   render() {
@@ -753,7 +810,7 @@ export default class AdvancedSelectElement extends __LitElement {
                       <span
                         tabindex="-1"
                         @click=${() => this._removeKeyword(keyword)}
-                        class="${this.cls('_keyword', 's-badge')}"
+                        class="${this.cls('_keyword')}"
                         >${keyword}</span
                       >
                     `,
@@ -765,8 +822,9 @@ export default class AdvancedSelectElement extends __LitElement {
           ${this._isLoading
             ? html`
                 <li
-                  class="${this.cls('_list-item')} ${this.classes
-                    .item} ${this.cls('_list-loading')}"
+                  class="${this.cls('_item')} ${this.classes.item} ${this.cls(
+                    '_loading',
+                  )}"
                 >
                   ${this._renderTemplate({
                     type: 'loading',
@@ -776,8 +834,9 @@ export default class AdvancedSelectElement extends __LitElement {
             : !this._isLoading && this._filteredItems.length <= 0
             ? html`
                 <li
-                  class="${this.cls('_list-item')} ${this.classes
-                    .item} ${this.cls('_list-no-item')}"
+                  class="${this.cls('_item')} ${this.classes.item} ${this.cls(
+                    '_no-item',
+                  )}"
                 >
                   ${this._renderTemplate({
                     type: 'empty',
@@ -789,16 +848,16 @@ export default class AdvancedSelectElement extends __LitElement {
                 idx < this._displayedMaxItems
                   ? html`
                       <li
-                        @click=${() => this.preselectAndValidate(item)}
-                        @dblclick=${() => this.preselectValidateAndClose(item)}
-                        @focus=${() => this._setPreselectedItem(item)}
+                        @click=${() => this.preselectValidateAndClose(item)}
+                        @focus=${() => this.preselect(item)}
                         style="z-index: ${999999999 - idx}"
                         tabindex="-1"
-                        class="${this.cls('_list-item')} ${this.classes
+                        class="${this.cls('_item')} ${this.classes
                           .item} ${this._selectedItems.includes(item)
-                          ? 'active'
+                          ? '-selected'
+                          : ''} ${this._preselectedItems.includes(item)
+                          ? '-preselected'
                           : ''}"
-                        hoverable
                       >
                         ${this._renderTemplate({
                           type: 'item',

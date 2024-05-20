@@ -50,12 +50,13 @@
     overflow-y: auto;
   }
 
-  .advanced-select_list-item {
+  .advanced-select_item {
     position: relative;
     user-select: none;
+    outline: none;
   }
 
-  &:not([interactive]) .advanced-select_list-item {
+  &:not([interactive]) .advanced-select_item {
     cursor: pointer;
     * {
       pointer-events: none;
