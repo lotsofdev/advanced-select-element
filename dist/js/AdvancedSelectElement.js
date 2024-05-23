@@ -547,9 +547,8 @@ export default class AdvancedSelectElement extends __LitElement {
                     let matchFilter = false;
                     for (let i = 0; i < Object.keys(item).length; i++) {
                         const propName = Object.keys(item)[i];
-                        if (propName.startsWith('_')) {
+                        if (typeof item[propName] !== 'string')
                             continue;
-                        }
                         const propValue = __stripTags(item[propName]);
                         // store original value
                         if (!item._original) {
@@ -563,9 +562,6 @@ export default class AdvancedSelectElement extends __LitElement {
                         if (!item[`_original`][propName]) {
                             item[`_original`][propName] = item[propName];
                         }
-                        // prevent not string value
-                        if (typeof propValue !== 'string')
-                            continue;
                         // check if the current propName is specified in the filtrable list
                         if (this.filtrable.indexOf(propName) !== -1) {
                             const reg = new RegExp(`${_searchValue}`.split(' ').join('|'), 'gi');
