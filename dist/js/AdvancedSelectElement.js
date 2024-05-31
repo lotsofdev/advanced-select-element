@@ -20,6 +20,8 @@ import { __isFocusWithin } from '@lotsof/sugar/is';
 import { html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { __uniqid } from '@lotsof/sugar/string';
+import { __nearestElement } from '@lotsof/sugar/dom';
 import { __escapeQueue } from '@lotsof/sugar/keyboard';
 import '../../src/css/advancedSelectElement.css';
 import { __distanceFromElementTopToViewportBottom, __distanceFromElementTopToViewportTop, __getStyleProperty, __onScrollEnd, } from '@lotsof/sugar/dom';
@@ -129,8 +131,6 @@ export default class AdvancedSelectElement extends __LitElement {
         this._searchValue = '';
         this._items = [];
         this._filteredItems = [];
-        this._preselectedItems = [];
-        this._selectedItems = [];
         this._isLoading = false;
         this.items = [];
         this.value = 'value';
@@ -150,7 +150,9 @@ export default class AdvancedSelectElement extends __LitElement {
         this._$dropdown = document.createElement('div');
         this._$input = document.createElement('input');
         this._templatesFromHtml = {};
+        this._isArrowUsed = false;
         this._baseTemplates = (api) => { };
+        this._currentItemIdx = 0;
     }
     mount() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -166,7 +168,7 @@ export default class AdvancedSelectElement extends __LitElement {
                 throw new Error(`Sorry but you have to specify at least one property in the "filtrable" attribute...`);
             }
             // @ts-ignore
-            this._baseTemplates = ({ type, item, html }) => {
+            this._baseTemplates = ({ type, item, $items, html }) => {
                 switch (type) {
                     case 'item':
                         return html `
@@ -174,6 +176,14 @@ export default class AdvancedSelectElement extends __LitElement {
                             ? this.label({ item })
                             : item[this.label])}
           `;
+                        break;
+                    case 'group':
+                        return html ` <h4 class="${this.cls('_group-label')}">
+              ${item.label}
+            </h4>
+            <ul class="${this.cls('_group-items')}">
+              ${$items}
+            </ul>`;
                         break;
                     case 'empty':
                         return html `
@@ -208,6 +218,12 @@ export default class AdvancedSelectElement extends __LitElement {
             else {
                 this.dispatch('loaded');
             }
+        }
+        if (this._searchValue) {
+            this.classList.add('-filtered');
+        }
+        else {
+            this.classList.remove('-filtered');
         }
         if (this._isLoading) {
             this.classList.add('-loading');
@@ -256,6 +272,8 @@ export default class AdvancedSelectElement extends __LitElement {
                 if (this._searchValue === e.target.value) {
                     return;
                 }
+                this.resetPreselected();
+                this.resetSelected();
                 const value = e.target.value;
                 this._searchValue = value;
                 this._displayedMaxItems = this.maxItems;
@@ -303,59 +321,34 @@ export default class AdvancedSelectElement extends __LitElement {
                 this._displayedMaxItems = ((_a = this._displayedMaxItems) !== null && _a !== void 0 ? _a : 0) + this.maxItems;
                 this._filterItems();
             });
-            // handle up arrow
+            // handle arrows
             document.addEventListener('keyup', (e) => {
-                if (e.key !== 'ArrowUp') {
-                    return;
-                }
                 if (!this.isActive())
                     return;
                 if (!this._filteredItems.length)
                     return;
-                if (!this._preselectedItems.length) {
-                    this._preselectedItems.push(this._filteredItems[this._filteredItems.length - 1]);
-                }
-                else {
-                    const currentIdx = this._filteredItems.indexOf(this._preselectedItems[0]);
-                    if (currentIdx === -1) {
-                        return;
-                    }
-                    const newIdx = currentIdx - 1;
-                    if (newIdx < 0)
-                        return;
-                    this._preselectedItems = [];
-                    this._preselectedItems.push(this._filteredItems[newIdx]);
-                }
-                this.requestUpdate();
-                const $item = this._$list.children[this._filteredItems.indexOf(this._preselectedItems[0])];
-                $item.focus();
-            });
-            // handle down arrow
-            document.addEventListener('keyup', (e) => {
-                if (e.key !== 'ArrowDown') {
+                const directionsMap = {
+                    ArrowDown: 'bottom',
+                    ArrowUp: 'top',
+                    ArrowLeft: 'left',
+                    ArrowRight: 'right',
+                };
+                if (!directionsMap[e.key])
                     return;
-                }
-                if (!this.isActive())
-                    return;
-                if (!this._filteredItems.length)
-                    return;
-                if (!this._preselectedItems.length) {
-                    this._preselectedItems.push(this._filteredItems[0]);
-                }
-                else {
-                    const currentIdx = this._filteredItems.indexOf(this._preselectedItems[0]);
-                    if (currentIdx === -1) {
-                        return;
-                    }
-                    const newIdx = currentIdx + 1;
-                    if (newIdx > this._filteredItems.length - 1)
-                        return;
-                    this._preselectedItems = [];
-                    this._preselectedItems.push(this._filteredItems[newIdx]);
-                }
-                this.requestUpdate();
-                const $item = this._$list.children[this._filteredItems.indexOf(this._preselectedItems[0])];
-                $item.focus();
+                // mark the arrow as used
+                this._isArrowUsed = true;
+                clearTimeout(this._isArrowUsedTimeout);
+                this._isArrowUsedTimeout = setTimeout(() => {
+                    this._isArrowUsed = false;
+                }, 100);
+                const $items = this.querySelectorAll(`.${this.cls('_item')}.-match`), $from = this.querySelector(`.${this.cls('_item')}.-preselected`) ||
+                    this.querySelector(`.${this.cls('_item')}.-selected`) ||
+                    this.querySelectorAll(`.${this.cls('_item')}`)[0];
+                let direction;
+                let $nearestElement = __nearestElement($from, $items, {
+                    direction: directionsMap[e.key],
+                });
+                $nearestElement === null || $nearestElement === void 0 ? void 0 : $nearestElement.focus();
             });
             // handle return key
             document.addEventListener('keyup', (e) => {
@@ -401,14 +394,11 @@ export default class AdvancedSelectElement extends __LitElement {
         return this._baseTemplates(finalApi);
     }
     validate() {
-        this._selectedItems = this._preselectedItems;
-        this._preselectedItems = [];
-        // protect against not selected item
-        if (!this._selectedItems.length)
+        const item = this.getSelectedItem() || this.getPreselectedItem();
+        if (!item) {
             return;
-        // temp thing cause we need to support multiple items selected at once
-        // @TODO            support for multiple items selected at once
-        const item = this._selectedItems[0];
+        }
+        // process value
         let value;
         if (typeof this.value === 'function') {
             value = this.value({
@@ -424,28 +414,17 @@ export default class AdvancedSelectElement extends __LitElement {
             }
             this._$input.value = __stripTags(value);
         }
-        let selectedItemItem = 0;
-        for (let i = 0; i < this._filteredItems.length; i++) {
-            const itemObj = this._filteredItems[i];
-            if (itemObj.id === item.id) {
-                selectedItemItem = i;
-                break;
-            }
-        }
-        const $selectedItem = this._$list.children[selectedItemItem];
         // dispatch an event
         if (!item.preventSelect) {
             this.dispatch('select', {
                 detail: {
-                    item: this._selectedItems[0],
-                    items: this._selectedItems,
-                    $elm: $selectedItem,
+                    item,
+                    $elm: this.querySelector(`.${this.cls('_item')}[data-id="${item.id}"]`),
                 },
             });
         }
-        // @ts-ignore
-        this._searchValue = this._$input.value;
-        // @ts-ignore
+        // reset
+        this.reset();
         this.requestUpdate();
     }
     validateAndClose() {
@@ -454,28 +433,104 @@ export default class AdvancedSelectElement extends __LitElement {
             this.close();
         }, this.closeTimeout);
     }
-    resetPreselected() {
-        this._preselectedItems = [];
+    /**
+     * Preselect an item
+     */
+    preselect(item) {
+        var _a;
+        // check if the component is in not selectable mode
+        if (this.notSelectable)
+            return;
+        // do not preselect if not match the search
+        if (!item.state.match)
+            return;
+        // reset preselected
+        (_a = this.getPreselectedItem()) === null || _a === void 0 ? void 0 : _a.state.preselected = false;
+        // set the new preselected
+        item.state.preselected = true;
+        // set focus in the input
+        setTimeout(() => {
+            this._$input.focus();
+        });
+        // update component
         this.requestUpdate();
+    }
+    preselectById(id) {
+        this.preselect(this.getItemById(id));
+    }
+    resetPreselected() {
+        var _a;
+        (_a = this.getPreselectedItem()) === null || _a === void 0 ? void 0 : _a.state.preselected = false;
+        this.requestUpdate();
+    }
+    /**
+     * Select an item
+     */
+    select(item) {
+        var _a;
+        // check if the component is in not selectable mode
+        if (this.notSelectable)
+            return;
+        // do not select if not match the search
+        if (!item.state.match)
+            return;
+        // reset preselected
+        (_a = this.getPreselectedItem()) === null || _a === void 0 ? void 0 : _a.state.selected = false;
+        // set the new preselected
+        item.state.selected = true;
+        // set focus in the input
+        setTimeout(() => {
+            this._$input.focus();
+        });
+        // update component
+        this.requestUpdate();
+    }
+    selectById(id) {
+        this.select(this.getItemById(id));
+    }
+    selectValidateAndClose(item) {
+        // do not select if not match the search
+        if (!item.state.match)
+            return;
+        // select the item
+        this.select(item);
+        // validate and close
+        this.validateAndClose();
     }
     resetSelected() {
-        this.resetPreselected();
-        this._selectedItems = [];
+        var _a;
+        (_a = this.getSelectedItem()) === null || _a === void 0 ? void 0 : _a.state.selected = false;
         this.requestUpdate();
     }
+    /**
+     *  Reset
+     */
     reset() {
+        this.resetPreselected();
         this.resetSelected();
         this._$input.value = '';
         this._searchValue = '';
         this._filterItems();
         this.dispatch('reset');
     }
+    getItemById(id) {
+        return this._filteredItems.find((item) => item.id === id);
+    }
+    getPreselectedItem() {
+        return this._filteredItems.find((item) => item.state.preselected);
+    }
+    getSelectedItem() {
+        return this._filteredItems.find((item) => item.state.selected);
+    }
+    getMatchItems() {
+        return this._filteredItems.filter((item) => item.state.match);
+    }
     open() {
         return __awaiter(this, void 0, void 0, function* () {
             __escapeQueue(() => {
                 if (!this.isActive())
                     return;
-                this.resetPreselected();
+                this.reset();
                 this.close();
             });
             yield this.refreshItems();
@@ -517,25 +572,64 @@ export default class AdvancedSelectElement extends __LitElement {
                     },
                 });
             }
+            // init items (state, id, etc...)
+            this._initItems(this._items);
+            // filter items
             yield this._filterItems();
+            // update component
             this._isLoading = false;
         });
+    }
+    _initItems(items) {
+        return items.map((item) => {
+            if (item.items) {
+                item.items = this._initItems(item.items);
+            }
+            return this._initItem(item);
+        });
+    }
+    _initItem(item) {
+        if (!item.state) {
+            item.state = {
+                match: false,
+                preselected: false,
+                selected: false,
+            };
+        }
+        if (!item.id) {
+            item.id = __uniqid();
+        }
+        if (!item.type) {
+            item.type = 'item';
+        }
+        return item;
+    }
+    _getItemsOnly() {
+        const itemsOnly = [];
+        this._items.forEach((item) => {
+            if (item.type == 'group') {
+                item.items.forEach((item) => {
+                    itemsOnly.push(item);
+                });
+            }
+            else {
+                itemsOnly.push(item);
+            }
+        });
+        return itemsOnly;
     }
     _filterItems() {
         return __awaiter(this, void 0, void 0, function* () {
             this._isLoading = true;
-            // reset selected
-            this.resetSelected();
-            let items = this._items;
+            const itemsOnly = this._getItemsOnly();
             let _searchValue = this._searchValue;
             if (this._searchValuePreprocess) {
                 _searchValue = this._searchValuePreprocess(_searchValue);
             }
-            // let _filteredItems = items.map((item) => __clone(item));
-            let _filteredItems = items;
+            let _filteredItems = itemsOnly;
             // custom function
             if (this.filterItems) {
-                _filteredItems = yield this.filterItems(this._items, _searchValue, this);
+                _filteredItems = yield this.filterItems(_filteredItems, _searchValue, this);
             }
             else {
                 let matchedItemsCount = 0;
@@ -587,6 +681,7 @@ export default class AdvancedSelectElement extends __LitElement {
                     if (matchFilter) {
                         matchedItemsCount++;
                     }
+                    item.state.match = matchFilter;
                     return matchFilter;
                 });
             }
@@ -594,23 +689,9 @@ export default class AdvancedSelectElement extends __LitElement {
             this._isLoading = false;
         });
     }
-    preselectAndValidate(item) {
-        this.preselect(item);
-        this.validate();
-    }
-    preselectValidateAndClose(item) {
-        this.preselect(item);
-        this.validateAndClose();
-    }
-    preselect(item) {
-        // check if the component is in not selectable mode
-        if (this.notSelectable)
-            return;
-        if (!this._preselectedItems.includes(item)) {
-            this._preselectedItems.push(item);
-        }
-        this.requestUpdate();
-    }
+    /**
+     * Maintain the dropdown position and size
+     */
     _updateListSizeAndPosition() {
         if (!this.isActive() || this.inline)
             return;
@@ -647,7 +728,46 @@ export default class AdvancedSelectElement extends __LitElement {
         this._searchValue = newValue;
         this._filterItems();
     }
+    _renderItems(items, inGroup = false) {
+        return html `${items.map((item, idx) => {
+            // if (this._searchValue && !item.state.match) {
+            //   return;
+            // }
+            return this._renderItem(item, idx, inGroup);
+        })}`;
+    }
+    _renderItem(item, idx, inGroup = false) {
+        var _a;
+        this._currentItemIdx++;
+        return html `
+      <li
+        data-id="${item.id}"
+        @pointerup=${() => this.selectValidateAndClose(item)}
+        @mouseover=${() => {
+            if (this._isArrowUsed)
+                return;
+            this.preselect(item);
+        }}
+        @focus=${() => this.preselect(item)}
+        style="z-index: ${999999999 - idx}"
+        tabindex="-1"
+        class="${this.cls('_item')} ${this.classes.item} ${inGroup
+            ? this.cls('_group-item')
+            : ''} ${item.state.selected ? '-selected' : ''} ${item.state
+            .preselected
+            ? '-preselected'
+            : ''} ${item.state.match ? '-match' : ''}"
+      >
+        ${this._renderTemplate({
+            type: (_a = item.type) !== null && _a !== void 0 ? _a : 'item',
+            item,
+            idx,
+        })}
+      </li>
+    `;
+    }
     render() {
+        this._currentItemIdx = 0;
         return html `
       <div class="${this.cls('_dropdown')} ${this.classes.dropdown}">
         <div
@@ -678,7 +798,7 @@ export default class AdvancedSelectElement extends __LitElement {
               </div>
             `
             : ''}
-        <ul class="${this.cls('_list')} ${this.classes.list}">
+        <ul class="${this.cls('_items')} ${this.classes.items}">
           ${this._isLoading
             ? html `
                 <li
@@ -700,28 +820,34 @@ export default class AdvancedSelectElement extends __LitElement {
                 </li>
               `
                 : !this._isLoading && this._filteredItems.length
-                    ? this._filteredItems.map((item, idx) => idx < this._displayedMaxItems
-                        ? html `
+                    ? this._items.map((item, idx) => {
+                        var _a, _b, _c, _d;
+                        // if (this._currentItemIdx < this._displayedMaxItems) {
+                        switch (item.type) {
+                            case 'group':
+                                const renderedItems = this._renderItems((_a = item.items) !== null && _a !== void 0 ? _a : [], true);
+                                return html `
                       <li
-                        @click=${() => this.preselectValidateAndClose(item)}
-                        @focus=${() => this.preselect(item)}
-                        style="z-index: ${999999999 - idx}"
-                        tabindex="-1"
-                        class="${this.cls('_item')} ${this.classes
-                            .item} ${this._selectedItems.includes(item)
-                            ? '-selected'
-                            : ''} ${this._preselectedItems.includes(item)
-                            ? '-preselected'
-                            : ''}"
+                        class="${this.classes.group} ${this.cls('_group')}"
+                        group="${(_d = (_c = (_b = item[this.label]) !== null && _b !== void 0 ? _b : item.label) !== null && _c !== void 0 ? _c : item.title) !== null && _d !== void 0 ? _d : item.name}"
                       >
                         ${this._renderTemplate({
-                            type: 'item',
-                            item,
-                            idx,
-                        })}
+                                    type: 'group',
+                                    $items: renderedItems,
+                                    item,
+                                })}
                       </li>
-                    `
-                        : '')
+                    `;
+                                break;
+                            default:
+                                // if (this._searchValue && !item.state.match) {
+                                //   return;
+                                // }
+                                return this._renderItem(item, idx);
+                                break;
+                        }
+                        // }
+                    })
                     : ''}
         </ul>
         <div class="${this.cls('_after')} ${this.classes.after}" tabindex="-1">
@@ -745,12 +871,6 @@ __decorate([
 __decorate([
     state()
 ], AdvancedSelectElement.prototype, "_filteredItems", void 0);
-__decorate([
-    state()
-], AdvancedSelectElement.prototype, "_preselectedItems", void 0);
-__decorate([
-    state()
-], AdvancedSelectElement.prototype, "_selectedItems", void 0);
 __decorate([
     state()
 ], AdvancedSelectElement.prototype, "_isLoading", void 0);

@@ -15,7 +15,7 @@
     z-index: 10;
     top: 100%;
     left: 50%;
-    opacity: 0;
+    /* opacity: 0; */
     max-width: calc(100vw - 100px);
     min-width: 100%;
     pointer-events: none;
@@ -45,7 +45,7 @@
     pointer-events: all !important;
   }
 
-  .advanced-select_list {
+  .advanced-select_items {
     overflow-x: hidden;
     overflow-y: auto;
   }

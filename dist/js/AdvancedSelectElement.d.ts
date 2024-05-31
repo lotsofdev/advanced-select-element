@@ -5,19 +5,32 @@ export interface IAdvancesSelectElementItemsFunctionApi {
     search: string;
     items: any[];
 }
+export interface IAdvancedSelectElementItemState {
+    match: boolean;
+    preselected: boolean;
+    selected: boolean;
+}
+export interface IAdvancedSelectElementItem {
+    id: string;
+    type?: 'item' | 'group';
+    state: IAdvancedSelectElementItemState;
+    [key: string]: any;
+}
 export interface IAdvancesSelectElementClasses {
     container?: string;
     input?: string;
     dropdown?: string;
-    list?: string;
+    items?: string;
     item?: string;
     before?: string;
     after?: string;
     keywords?: string;
+    group?: string;
 }
 export interface IAdvancesSelectElementApi {
     type: string;
     item: any;
+    $items: any[];
     html: Function;
     unsafeHTML: Function;
     idx: number;
@@ -123,8 +136,6 @@ export default class AdvancedSelectElement extends __LitElement {
     private _searchValue;
     private _items;
     private _filteredItems;
-    private _preselectedItems;
-    private _selectedItems;
     private _isLoading;
     items: any[] | ((api: IAdvancesSelectElementItemsFunctionApi) => any[]);
     value: string | Function;
@@ -148,6 +159,8 @@ export default class AdvancedSelectElement extends __LitElement {
     private _$input;
     private _$form?;
     private _templatesFromHtml;
+    private _isArrowUsed;
+    private _isArrowUsedTimeout?;
     private _baseTemplates;
     constructor();
     mount(): Promise<void>;
@@ -158,20 +171,44 @@ export default class AdvancedSelectElement extends __LitElement {
     _renderTemplate(api: Partial<IAdvancesSelectElementApi>): any;
     validate(): void;
     validateAndClose(): void;
+    /**
+     * Preselect an item
+     */
+    preselect(item: any): void;
+    preselectById(id: string): void;
     resetPreselected(): void;
+    /**
+     * Select an item
+     */
+    select(item: any): void;
+    selectById(id: string): void;
+    selectValidateAndClose(item: any): void;
     resetSelected(): void;
+    /**
+     *  Reset
+     */
     reset(): void;
+    getItemById(id: string): IAdvancedSelectElementItem;
+    getPreselectedItem(): IAdvancedSelectElementItem;
+    getSelectedItem(): IAdvancedSelectElementItem;
+    getMatchItems(): IAdvancedSelectElementItem[];
     open(): Promise<void>;
     close(): void;
     refreshItems(): Promise<void>;
+    _initItems(items: any[]): IAdvancedSelectElementItem[];
+    _initItem(item: Partial<IAdvancedSelectElementItem>): IAdvancedSelectElementItem;
+    _getItemsOnly(): IAdvancedSelectElementItem[];
     _filterItems(): Promise<void>;
-    preselectAndValidate(item: any): void;
-    preselectValidateAndClose(item: any): void;
-    preselect(item: any): void;
+    /**
+     * Maintain the dropdown position and size
+     */
     _updateListSizeAndPosition(): void;
     /**
      * This function just remove a keyword from the input and filter the items again
      */
     _removeKeyword(keyword: string): void;
+    _renderItems(items: any[], inGroup?: boolean): any;
+    _renderItem(item: any[], idx: number, inGroup?: boolean): any;
+    private _currentItemIdx;
     render(): import("lit-html").TemplateResult<1>;
 }
