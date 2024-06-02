@@ -194,6 +194,7 @@ export default class AdvancedSelectElement extends __LitElement {
     getMatchItems(): IAdvancedSelectElementItem[];
     open(): Promise<void>;
     close(): void;
+    private _isLoadingTimeout;
     refreshItems(): Promise<void>;
     _initItems(items: any[]): IAdvancedSelectElementItem[];
     _initItem(item: Partial<IAdvancedSelectElementItem>): IAdvancedSelectElementItem;

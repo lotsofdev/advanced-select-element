@@ -127,6 +127,7 @@ export default class AdvancedSelectElement extends __LitElement {
         super({
             name: 'advanced-select',
         });
+        // @state()
         this._displayedMaxItems = 0;
         this._searchValue = '';
         this._items = [];
@@ -142,7 +143,7 @@ export default class AdvancedSelectElement extends __LitElement {
         this.closeTimeout = 100;
         this.interactive = true;
         this.notSelectable = false;
-        this.maxItems = 25;
+        this.maxItems = -1;
         this.classes = {};
         this.inline = false;
         this._$container = document.createElement('div');
@@ -165,7 +166,7 @@ export default class AdvancedSelectElement extends __LitElement {
                 this.filtrable.push(this.label);
             }
             if (!this.filtrable.length) {
-                throw new Error(`Sorry but you have to specify at least one property in the "filtrable" attribute...`);
+                throw new Error(`Sorry but you have to specify at least one property in the "filtrable" item property...`);
             }
             // @ts-ignore
             this._baseTemplates = ({ type, item, $items, html }) => {
@@ -197,7 +198,9 @@ export default class AdvancedSelectElement extends __LitElement {
                         break;
                 }
             };
-            // if we have the focus in the
+            // grab templates
+            this._grabTemplates();
+            // if we have the focus in
             if (__isFocusWithin(this)) {
                 setTimeout(() => {
                     this._$input.focus();
@@ -207,13 +210,8 @@ export default class AdvancedSelectElement extends __LitElement {
     }
     updated(changedProperties) {
         if (changedProperties.has('_isLoading')) {
-            clearTimeout(this._loadingTimeout);
             if (this._isLoading) {
-                this._loadingTimeout = setTimeout(() => {
-                    if (this._isLoading) {
-                        this.dispatch('loading');
-                    }
-                }, 500);
+                this.dispatch('loading');
             }
             else {
                 this.dispatch('loaded');
@@ -261,8 +259,6 @@ export default class AdvancedSelectElement extends __LitElement {
                     e.preventDefault();
                 }
             });
-            // grab templates
-            this._grabTemplates();
             // handle update on key event
             this._$input.addEventListener('keyup', (e) => __awaiter(this, void 0, void 0, function* () {
                 if (!this.isActive()) {
@@ -318,11 +314,15 @@ export default class AdvancedSelectElement extends __LitElement {
             this._updateListSizeAndPosition();
             __onScrollEnd(this._$list, () => {
                 var _a;
+                if (this.maxItems === -1) {
+                    return;
+                }
                 this._displayedMaxItems = ((_a = this._displayedMaxItems) !== null && _a !== void 0 ? _a : 0) + this.maxItems;
                 this._filterItems();
             });
             // handle arrows
             document.addEventListener('keyup', (e) => {
+                var _a;
                 if (!this.isActive())
                     return;
                 if (!this._filteredItems.length)
@@ -345,10 +345,15 @@ export default class AdvancedSelectElement extends __LitElement {
                     this.querySelector(`.${this.cls('_item')}.-selected`) ||
                     this.querySelectorAll(`.${this.cls('_item')}`)[0];
                 let direction;
-                let $nearestElement = __nearestElement($from, $items, {
-                    direction: directionsMap[e.key],
-                });
-                $nearestElement === null || $nearestElement === void 0 ? void 0 : $nearestElement.focus();
+                if (!this.getPreselectedItem()) {
+                    (_a = $items[0]) === null || _a === void 0 ? void 0 : _a.focus();
+                }
+                else {
+                    let $nearestElement = __nearestElement($from, $items, {
+                        direction: directionsMap[e.key],
+                    });
+                    $nearestElement === null || $nearestElement === void 0 ? void 0 : $nearestElement.focus();
+                }
             });
             // handle return key
             document.addEventListener('keyup', (e) => {
@@ -425,7 +430,7 @@ export default class AdvancedSelectElement extends __LitElement {
         }
         // reset
         this.reset();
-        this.requestUpdate();
+        // this.requestUpdate();
     }
     validateAndClose() {
         this.validate();
@@ -438,22 +443,20 @@ export default class AdvancedSelectElement extends __LitElement {
      */
     preselect(item) {
         var _a;
+        // reset preselected
+        (_a = this.getPreselectedItem()) === null || _a === void 0 ? void 0 : _a.state.preselected = false;
         // check if the component is in not selectable mode
         if (this.notSelectable)
             return;
         // do not preselect if not match the search
         if (!item.state.match)
             return;
-        // reset preselected
-        (_a = this.getPreselectedItem()) === null || _a === void 0 ? void 0 : _a.state.preselected = false;
         // set the new preselected
         item.state.preselected = true;
         // set focus in the input
         setTimeout(() => {
             this._$input.focus();
         });
-        // update component
-        this.requestUpdate();
     }
     preselectById(id) {
         this.preselect(this.getItemById(id));
@@ -461,21 +464,21 @@ export default class AdvancedSelectElement extends __LitElement {
     resetPreselected() {
         var _a;
         (_a = this.getPreselectedItem()) === null || _a === void 0 ? void 0 : _a.state.preselected = false;
-        this.requestUpdate();
+        // this.requestUpdate();
     }
     /**
      * Select an item
      */
     select(item) {
         var _a;
+        // reset preselected
+        (_a = this.getPreselectedItem()) === null || _a === void 0 ? void 0 : _a.state.selected = false;
         // check if the component is in not selectable mode
         if (this.notSelectable)
             return;
         // do not select if not match the search
         if (!item.state.match)
             return;
-        // reset preselected
-        (_a = this.getPreselectedItem()) === null || _a === void 0 ? void 0 : _a.state.selected = false;
         // set the new preselected
         item.state.selected = true;
         // set focus in the input
@@ -483,7 +486,7 @@ export default class AdvancedSelectElement extends __LitElement {
             this._$input.focus();
         });
         // update component
-        this.requestUpdate();
+        // this.requestUpdate();
     }
     selectById(id) {
         this.select(this.getItemById(id));
@@ -500,7 +503,7 @@ export default class AdvancedSelectElement extends __LitElement {
     resetSelected() {
         var _a;
         (_a = this.getSelectedItem()) === null || _a === void 0 ? void 0 : _a.state.selected = false;
-        this.requestUpdate();
+        // this.requestUpdate();
     }
     /**
      *  Reset
@@ -544,7 +547,10 @@ export default class AdvancedSelectElement extends __LitElement {
     }
     refreshItems() {
         return __awaiter(this, void 0, void 0, function* () {
-            this._isLoading = true;
+            clearTimeout(this._isLoadingTimeout);
+            this._isLoadingTimeout = setTimeout(() => {
+                this._isLoading = true;
+            }, 100);
             if (this.items) {
                 if (typeof this.items === 'string') {
                     try {
@@ -577,6 +583,7 @@ export default class AdvancedSelectElement extends __LitElement {
             // filter items
             yield this._filterItems();
             // update component
+            clearTimeout(this._isLoadingTimeout);
             this._isLoading = false;
         });
     }
@@ -589,9 +596,12 @@ export default class AdvancedSelectElement extends __LitElement {
         });
     }
     _initItem(item) {
+        if (item.type === 'group') {
+            return;
+        }
         if (!item.state) {
             item.state = {
-                match: false,
+                match: true,
                 preselected: false,
                 selected: false,
             };
@@ -634,8 +644,6 @@ export default class AdvancedSelectElement extends __LitElement {
             else {
                 let matchedItemsCount = 0;
                 _filteredItems = _filteredItems.filter((item) => {
-                    if (matchedItemsCount >= this._displayedMaxItems)
-                        return false;
                     if (!this.filtrable.length)
                         return true;
                     let matchFilter = false;
@@ -730,15 +738,16 @@ export default class AdvancedSelectElement extends __LitElement {
     }
     _renderItems(items, inGroup = false) {
         return html `${items.map((item, idx) => {
-            // if (this._searchValue && !item.state.match) {
-            //   return;
-            // }
             return this._renderItem(item, idx, inGroup);
         })}`;
     }
     _renderItem(item, idx, inGroup = false) {
         var _a;
         this._currentItemIdx++;
+        if (this.maxItems !== -1 &&
+            this._currentItemIdx > this._displayedMaxItems) {
+            return;
+        }
         return html `
       <li
         data-id="${item.id}"
@@ -822,7 +831,6 @@ export default class AdvancedSelectElement extends __LitElement {
                 : !this._isLoading && this._filteredItems.length
                     ? this._items.map((item, idx) => {
                         var _a, _b, _c, _d;
-                        // if (this._currentItemIdx < this._displayedMaxItems) {
                         switch (item.type) {
                             case 'group':
                                 const renderedItems = this._renderItems((_a = item.items) !== null && _a !== void 0 ? _a : [], true);
@@ -840,13 +848,9 @@ export default class AdvancedSelectElement extends __LitElement {
                     `;
                                 break;
                             default:
-                                // if (this._searchValue && !item.state.match) {
-                                //   return;
-                                // }
                                 return this._renderItem(item, idx);
                                 break;
                         }
-                        // }
                     })
                     : ''}
         </ul>
@@ -859,9 +863,6 @@ export default class AdvancedSelectElement extends __LitElement {
     `;
     }
 }
-__decorate([
-    state()
-], AdvancedSelectElement.prototype, "_displayedMaxItems", void 0);
 __decorate([
     state()
 ], AdvancedSelectElement.prototype, "_searchValue", void 0);
