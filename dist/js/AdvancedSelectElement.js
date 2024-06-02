@@ -187,6 +187,7 @@ export default class AdvancedSelectElement extends __LitElement {
             </ul>`;
                         break;
                     case 'empty':
+                        return;
                         return html `
             <div class="${this.cls('_empty')}">${this.emptyText}</div>
           `;
@@ -756,6 +757,7 @@ export default class AdvancedSelectElement extends __LitElement {
             if (this._isArrowUsed)
                 return;
             this.preselect(item);
+            this.requestUpdate();
         }}
         @focus=${() => this.preselect(item)}
         style="z-index: ${999999999 - idx}"
@@ -777,16 +779,25 @@ export default class AdvancedSelectElement extends __LitElement {
     }
     render() {
         this._currentItemIdx = 0;
+        const $before = this._renderTemplate({
+            type: 'before',
+        }), $after = this._renderTemplate({
+            type: 'after',
+        }), $empty = this._renderTemplate({
+            type: 'empty',
+        });
         return html `
       <div class="${this.cls('_dropdown')} ${this.classes.dropdown}">
-        <div
-          class="${this.cls('_before')} ${this.classes.before}"
-          tabindex="-1"
-        >
-          ${this._renderTemplate({
-            type: 'before',
-        })}
-        </div>
+        ${$before
+            ? html `
+              <div
+                class="${this.cls('_before')} ${this.classes.before}"
+                tabindex="-1"
+              >
+                ${$before}
+              </div>
+            `
+            : ''}
         ${this._$input && this._$input.value && this.showKeywords
             ? html `
               <div
@@ -818,17 +829,15 @@ export default class AdvancedSelectElement extends __LitElement {
             })}
                 </li>
               `
-            : !this._isLoading && this._filteredItems.length <= 0
+            : !this._isLoading && this._filteredItems.length <= 0 && $empty
                 ? html `
                 <li
                   class="${this.cls('_item')} ${this.classes.item} ${this.cls('_no-item')}"
                 >
-                  ${this._renderTemplate({
-                    type: 'empty',
-                })}
+                  ${$empty}
                 </li>
               `
-                : !this._isLoading && this._filteredItems.length
+                : !this._isLoading
                     ? this._items.map((item, idx) => {
                         var _a, _b, _c, _d;
                         switch (item.type) {
@@ -854,11 +863,16 @@ export default class AdvancedSelectElement extends __LitElement {
                     })
                     : ''}
         </ul>
-        <div class="${this.cls('_after')} ${this.classes.after}" tabindex="-1">
-          ${this._renderTemplate({
-            type: 'after',
-        })}
-        </div>
+        ${$after
+            ? html `
+              <div
+                class="${this.cls('_after')} ${this.classes.after}"
+                tabindex="-1"
+              >
+                ${$after}
+              </div>
+            `
+            : ''}
       </div>
     `;
     }
