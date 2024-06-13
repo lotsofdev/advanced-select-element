@@ -133,7 +133,7 @@ export interface IAdvancesSelectElementApi {
  */
 export default class AdvancedSelectElement extends __LitElement {
     private _displayedMaxItems;
-    private _searchValue;
+    private _filterValue;
     private _items;
     private _filteredItems;
     private _isLoading;
@@ -143,8 +143,9 @@ export default class AdvancedSelectElement extends __LitElement {
     showKeywords: boolean;
     emptyText: string;
     loadingText: string;
-    _searchValuePreprocess?: Function;
+    filterValuePreprocess?: Function;
     filterItems?: Function;
+    minChars: number;
     filtrable: string[];
     templates?: (api: IAdvancesSelectElementApi) => any;
     closeTimeout: number;
@@ -197,7 +198,7 @@ export default class AdvancedSelectElement extends __LitElement {
     private _isLoadingTimeout;
     refreshItems(): Promise<void>;
     _initItems(items: any[]): IAdvancedSelectElementItem[];
-    _initItem(item: Partial<IAdvancedSelectElementItem>): IAdvancedSelectElementItem;
+    _initItem(item: Partial<IAdvancedSelectElementItem>): IAdvancedSelectElementItem | undefined;
     _getItemsOnly(): IAdvancedSelectElementItem[];
     _filterItems(): Promise<void>;
     /**
@@ -208,8 +209,8 @@ export default class AdvancedSelectElement extends __LitElement {
      * This function just remove a keyword from the input and filter the items again
      */
     _removeKeyword(keyword: string): void;
-    _renderItems(items: any[], inGroup?: boolean): any;
-    _renderItem(item: any[], idx: number, inGroup?: boolean): any;
+    _renderItems(items: IAdvancedSelectElementItem[], inGroup?: boolean): any;
+    _renderItem(item: IAdvancedSelectElementItem, idx: number, inGroup?: boolean): any;
     private _currentItemIdx;
     render(): import("lit-html").TemplateResult<1>;
 }

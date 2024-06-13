@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import __LitElement from '@lotsof/lit-element';
 // @TODO            check why import does not work
 // @ts-ignore
@@ -162,7 +164,7 @@ export default class AdvancedSelectElement extends __LitElement {
   private _displayedMaxItems: number = 0;
 
   @state()
-  private _searchValue: string = '';
+  private _filterValue: string = '';
 
   @state()
   private _items: IAdvancedSelectElementItem[] = [];
@@ -194,10 +196,13 @@ export default class AdvancedSelectElement extends __LitElement {
   public loadingText: string = 'Loading, please wait...';
 
   @property()
-  public _searchValuePreprocess?: Function;
+  public filterValuePreprocess?: Function;
 
   @property()
   public filterItems?: Function;
+
+  @property()
+  public minChars: number = 2;
 
   @property()
   public filtrable: string[] = [];
@@ -271,7 +276,7 @@ export default class AdvancedSelectElement extends __LitElement {
               ${item.label}
             </h4>
             <ul class="${this.cls('_group-items')}">
-              ${$items}
+              <div class="${this.cls('_group-items-inner')}">${$items}</div>
             </ul>`;
           break;
         case 'empty':
@@ -311,7 +316,7 @@ export default class AdvancedSelectElement extends __LitElement {
       }
     }
 
-    if (this._searchValue) {
+    if (this._filterValue) {
       this.classList.add('-filtered');
     } else {
       this.classList.remove('-filtered');
@@ -356,7 +361,7 @@ export default class AdvancedSelectElement extends __LitElement {
       }
 
       // nothing has changed
-      if (this._searchValue === (<HTMLInputElement>e.target).value) {
+      if (this._filterValue === (<HTMLInputElement>e.target).value) {
         return;
       }
 
@@ -364,7 +369,7 @@ export default class AdvancedSelectElement extends __LitElement {
       this.resetSelected();
 
       const value = (<HTMLInputElement>e.target).value;
-      this._searchValue = value;
+      this._filterValue = value;
       this._displayedMaxItems = this.maxItems;
 
       // if passed a function to the items property,
@@ -383,7 +388,7 @@ export default class AdvancedSelectElement extends __LitElement {
         return;
       }
       const value = (<HTMLInputElement>e.target).value;
-      this._searchValue = value;
+      this._filterValue = value;
       this.open();
       this._updateListSizeAndPosition();
     });
@@ -471,13 +476,13 @@ export default class AdvancedSelectElement extends __LitElement {
     });
 
     // restore value from state
-    if (this._searchValue) {
-      this._$input.value = this._searchValue;
+    if (this._filterValue) {
+      this._$input.value = this._filterValue;
     }
 
     // open if a value exists
     if (this._$input.value) {
-      this._searchValue = this._$input.value;
+      this._filterValue = this._$input.value;
     }
   }
 
@@ -627,7 +632,7 @@ export default class AdvancedSelectElement extends __LitElement {
     this.resetPreselected();
     this.resetSelected();
     this._$input.value = '';
-    this._searchValue = '';
+    this._filterValue = '';
     this._filterItems();
     this.dispatch('reset');
   }
@@ -678,7 +683,7 @@ export default class AdvancedSelectElement extends __LitElement {
         }
       } else if (typeof this.items === 'function') {
         this._items = await this.items({
-          search: this._searchValue,
+          search: this._filterValue,
           items: this._items,
         });
       } else {
@@ -714,7 +719,7 @@ export default class AdvancedSelectElement extends __LitElement {
 
   _initItem(
     item: Partial<IAdvancedSelectElementItem>,
-  ): IAdvancedSelectElementItem {
+  ): IAdvancedSelectElementItem | undefined {
     if (item.type === 'group') {
       return;
     }
@@ -732,7 +737,7 @@ export default class AdvancedSelectElement extends __LitElement {
     if (!item.type) {
       item.type = 'item';
     }
-    return item;
+    return item as IAdvancedSelectElementItem;
   }
 
   _getItemsOnly(): IAdvancedSelectElementItem[] {
@@ -751,13 +756,17 @@ export default class AdvancedSelectElement extends __LitElement {
   }
 
   async _filterItems() {
+    if (this._filterValue && this._filterValue.length < this.minChars) {
+      return;
+    }
+
     this._isLoading = true;
 
     const itemsOnly = this._getItemsOnly();
 
-    let _searchValue = this._searchValue;
-    if (this._searchValuePreprocess) {
-      _searchValue = this._searchValuePreprocess(_searchValue);
+    let _filterValue = this._filterValue;
+    if (this.filterValuePreprocess) {
+      _filterValue = this.filterValuePreprocess(_filterValue);
     }
 
     let _filteredItems = itemsOnly;
@@ -766,7 +775,7 @@ export default class AdvancedSelectElement extends __LitElement {
     if (this.filterItems) {
       _filteredItems = await this.filterItems(
         _filteredItems,
-        _searchValue,
+        _filterValue,
         this,
       );
     } else {
@@ -798,14 +807,14 @@ export default class AdvancedSelectElement extends __LitElement {
           // check if the current propName is specified in the filtrable list
           if (this.filtrable.indexOf(propName) !== -1) {
             const reg = new RegExp(
-              `${_searchValue}`.split(' ').join('|'),
+              `${_filterValue}`.split(' ').join('|'),
               'gi',
             );
 
             if (propValue.match(reg)) {
               matchFilter = true;
-              if (_searchValue && _searchValue !== '') {
-                const reg = new RegExp(_searchValue.split(' ').join('|'), 'gi');
+              if (_filterValue && _filterValue !== '') {
+                const reg = new RegExp(_filterValue.split(' ').join('|'), 'gi');
                 const finalString = item._original[propName].replace(
                   reg,
                   (str) => {
@@ -868,22 +877,29 @@ export default class AdvancedSelectElement extends __LitElement {
    * This function just remove a keyword from the input and filter the items again
    */
   _removeKeyword(keyword: string): void {
-    const newValue = this._searchValue
+    const newValue = this._filterValue
       .split(' ')
       .filter((k) => k !== keyword)
       .join(' ');
     this._$input.value = newValue;
-    this._searchValue = newValue;
+    this._filterValue = newValue;
     this._filterItems();
   }
 
-  _renderItems(items: any[], inGroup: boolean = false): any {
+  _renderItems(
+    items: IAdvancedSelectElementItem[],
+    inGroup: boolean = false,
+  ): any {
     return html`${items.map((item, idx) => {
       return this._renderItem(item, idx, inGroup);
     })}`;
   }
 
-  _renderItem(item: any[], idx: number, inGroup: boolean = false): any {
+  _renderItem(
+    item: IAdvancedSelectElementItem,
+    idx: number,
+    inGroup: boolean = false,
+  ): any {
     this._currentItemIdx++;
 
     if (
@@ -910,7 +926,9 @@ export default class AdvancedSelectElement extends __LitElement {
           : ''} ${item.state.selected ? '-selected' : ''} ${item.state
           .preselected
           ? '-preselected'
-          : ''} ${item.state.match ? '-match' : ''}"
+          : ''} ${this._filterValue ? '-filtered' : ''} ${item.state.match
+          ? '-match'
+          : ''}"
       >
         ${this._renderTemplate({
           type: item.type ?? 'item',
@@ -1003,7 +1021,7 @@ export default class AdvancedSelectElement extends __LitElement {
                     return html`
                       <li
                         class="${this.classes.group} ${this.cls('_group')}"
-                        group="${item[this.label] ??
+                        group="${item[this.label as string] ??
                         item.label ??
                         item.title ??
                         item.name}"

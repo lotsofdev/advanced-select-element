@@ -1,3 +1,4 @@
+// @ts-nocheck
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -129,7 +130,7 @@ export default class AdvancedSelectElement extends __LitElement {
         });
         // @state()
         this._displayedMaxItems = 0;
-        this._searchValue = '';
+        this._filterValue = '';
         this._items = [];
         this._filteredItems = [];
         this._isLoading = false;
@@ -139,6 +140,7 @@ export default class AdvancedSelectElement extends __LitElement {
         this.showKeywords = false;
         this.emptyText = 'No items found...';
         this.loadingText = 'Loading, please wait...';
+        this.minChars = 2;
         this.filtrable = [];
         this.closeTimeout = 100;
         this.interactive = true;
@@ -183,7 +185,7 @@ export default class AdvancedSelectElement extends __LitElement {
               ${item.label}
             </h4>
             <ul class="${this.cls('_group-items')}">
-              ${$items}
+              <div class="${this.cls('_group-items-inner')}">${$items}</div>
             </ul>`;
                         break;
                     case 'empty':
@@ -218,7 +220,7 @@ export default class AdvancedSelectElement extends __LitElement {
                 this.dispatch('loaded');
             }
         }
-        if (this._searchValue) {
+        if (this._filterValue) {
             this.classList.add('-filtered');
         }
         else {
@@ -266,13 +268,13 @@ export default class AdvancedSelectElement extends __LitElement {
                     return;
                 }
                 // nothing has changed
-                if (this._searchValue === e.target.value) {
+                if (this._filterValue === e.target.value) {
                     return;
                 }
                 this.resetPreselected();
                 this.resetSelected();
                 const value = e.target.value;
-                this._searchValue = value;
+                this._filterValue = value;
                 this._displayedMaxItems = this.maxItems;
                 // if passed a function to the items property,
                 // we refresh the items at eash keystroke
@@ -290,7 +292,7 @@ export default class AdvancedSelectElement extends __LitElement {
                     return;
                 }
                 const value = e.target.value;
-                this._searchValue = value;
+                this._filterValue = value;
                 this.open();
                 this._updateListSizeAndPosition();
             });
@@ -367,12 +369,12 @@ export default class AdvancedSelectElement extends __LitElement {
                 this.validateAndClose();
             });
             // restore value from state
-            if (this._searchValue) {
-                this._$input.value = this._searchValue;
+            if (this._filterValue) {
+                this._$input.value = this._filterValue;
             }
             // open if a value exists
             if (this._$input.value) {
-                this._searchValue = this._$input.value;
+                this._filterValue = this._$input.value;
             }
         });
     }
@@ -513,7 +515,7 @@ export default class AdvancedSelectElement extends __LitElement {
         this.resetPreselected();
         this.resetSelected();
         this._$input.value = '';
-        this._searchValue = '';
+        this._filterValue = '';
         this._filterItems();
         this.dispatch('reset');
     }
@@ -566,7 +568,7 @@ export default class AdvancedSelectElement extends __LitElement {
                 }
                 else if (typeof this.items === 'function') {
                     this._items = yield this.items({
-                        search: this._searchValue,
+                        search: this._filterValue,
                         items: this._items,
                     });
                 }
@@ -631,16 +633,19 @@ export default class AdvancedSelectElement extends __LitElement {
     }
     _filterItems() {
         return __awaiter(this, void 0, void 0, function* () {
+            if (this._filterValue && this._filterValue.length < this.minChars) {
+                return;
+            }
             this._isLoading = true;
             const itemsOnly = this._getItemsOnly();
-            let _searchValue = this._searchValue;
-            if (this._searchValuePreprocess) {
-                _searchValue = this._searchValuePreprocess(_searchValue);
+            let _filterValue = this._filterValue;
+            if (this.filterValuePreprocess) {
+                _filterValue = this.filterValuePreprocess(_filterValue);
             }
             let _filteredItems = itemsOnly;
             // custom function
             if (this.filterItems) {
-                _filteredItems = yield this.filterItems(_filteredItems, _searchValue, this);
+                _filteredItems = yield this.filterItems(_filteredItems, _filterValue, this);
             }
             else {
                 let matchedItemsCount = 0;
@@ -667,11 +672,11 @@ export default class AdvancedSelectElement extends __LitElement {
                         }
                         // check if the current propName is specified in the filtrable list
                         if (this.filtrable.indexOf(propName) !== -1) {
-                            const reg = new RegExp(`${_searchValue}`.split(' ').join('|'), 'gi');
+                            const reg = new RegExp(`${_filterValue}`.split(' ').join('|'), 'gi');
                             if (propValue.match(reg)) {
                                 matchFilter = true;
-                                if (_searchValue && _searchValue !== '') {
-                                    const reg = new RegExp(_searchValue.split(' ').join('|'), 'gi');
+                                if (_filterValue && _filterValue !== '') {
+                                    const reg = new RegExp(_filterValue.split(' ').join('|'), 'gi');
                                     const finalString = item._original[propName].replace(reg, (str) => {
                                         return `<span class="${this.cls('_highlight')}"
                                       >${str}</span>`;
@@ -729,12 +734,12 @@ export default class AdvancedSelectElement extends __LitElement {
      * This function just remove a keyword from the input and filter the items again
      */
     _removeKeyword(keyword) {
-        const newValue = this._searchValue
+        const newValue = this._filterValue
             .split(' ')
             .filter((k) => k !== keyword)
             .join(' ');
         this._$input.value = newValue;
-        this._searchValue = newValue;
+        this._filterValue = newValue;
         this._filterItems();
     }
     _renderItems(items, inGroup = false) {
@@ -767,7 +772,9 @@ export default class AdvancedSelectElement extends __LitElement {
             : ''} ${item.state.selected ? '-selected' : ''} ${item.state
             .preselected
             ? '-preselected'
-            : ''} ${item.state.match ? '-match' : ''}"
+            : ''} ${this._filterValue ? '-filtered' : ''} ${item.state.match
+            ? '-match'
+            : ''}"
       >
         ${this._renderTemplate({
             type: (_a = item.type) !== null && _a !== void 0 ? _a : 'item',
@@ -879,7 +886,7 @@ export default class AdvancedSelectElement extends __LitElement {
 }
 __decorate([
     state()
-], AdvancedSelectElement.prototype, "_searchValue", void 0);
+], AdvancedSelectElement.prototype, "_filterValue", void 0);
 __decorate([
     state()
 ], AdvancedSelectElement.prototype, "_items", void 0);
@@ -909,10 +916,13 @@ __decorate([
 ], AdvancedSelectElement.prototype, "loadingText", void 0);
 __decorate([
     property()
-], AdvancedSelectElement.prototype, "_searchValuePreprocess", void 0);
+], AdvancedSelectElement.prototype, "filterValuePreprocess", void 0);
 __decorate([
     property()
 ], AdvancedSelectElement.prototype, "filterItems", void 0);
+__decorate([
+    property()
+], AdvancedSelectElement.prototype, "minChars", void 0);
 __decorate([
     property()
 ], AdvancedSelectElement.prototype, "filtrable", void 0);
