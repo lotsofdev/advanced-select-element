@@ -14,14 +14,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import __LitElement from '@lotsof/lit-element';
+import __LitElement from '@lotsof/litElement';
 // @TODO            check why import does not work
 // @ts-ignore
 import { __isFocusWithin } from '@lotsof/sugar/is';
+import { __uniqid } from '@lotsof/sugar/string';
 import { html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import { __uniqid } from '@lotsof/sugar/string';
 import { __nearestElement } from '@lotsof/sugar/dom';
 import { __escapeQueue } from '@lotsof/sugar/keyboard';
 import '../../src/css/advancedSelectElement.css';

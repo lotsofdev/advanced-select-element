@@ -1,4 +1,4 @@
-import __LitElement from '@lotsof/lit-element';
+import __LitElement from '@lotsof/litElement';
 import { PropertyValueMap } from 'lit';
 import '../../src/css/advancedSelectElement.css';
 export interface IAdvancesSelectElementItemsFunctionApi {
