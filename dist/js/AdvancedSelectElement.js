@@ -14,7 +14,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import __LitElement from '@lotsof/litElement';
+import __LitElement from '@lotsof/lit-element';
 // @TODO            check why import does not work
 // @ts-ignore
 import { __isFocusWithin } from '@lotsof/sugar/is';
@@ -24,7 +24,7 @@ import { property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { __nearestElement } from '@lotsof/sugar/dom';
 import { __escapeQueue } from '@lotsof/sugar/keyboard';
-import '../../src/css/advancedSelectElement.css';
+import '../../src/css/AdvancedSelectElement.bare.css';
 import { __distanceFromElementTopToViewportBottom, __distanceFromElementTopToViewportTop, __getStyleProperty, __onScrollEnd, } from '@lotsof/sugar/dom';
 import { __stripTags } from '@lotsof/sugar/html';
 /**
@@ -125,9 +125,7 @@ import { __stripTags } from '@lotsof/sugar/html';
  */
 export default class AdvancedSelectElement extends __LitElement {
     constructor() {
-        super({
-            name: 'advanced-select',
-        });
+        super('s-advanced-select');
         // @state()
         this._displayedMaxItems = 0;
         this._filterValue = '';
@@ -416,6 +414,7 @@ export default class AdvancedSelectElement extends __LitElement {
         else {
             value = item[this.value];
         }
+        console.log('V', value);
         if (!item.preventSet) {
             if (typeof value !== 'string') {
                 throw new Error(`<red>[advancedSelect]</red> Sorry but the returned value "<yellow>${value}</yellow>" has to be a string...`);

@@ -1,22 +1,22 @@
-import __LitElement from '@lotsof/litElement';
+import __LitElement from '@lotsof/lit-element';
 import { PropertyValueMap } from 'lit';
-import '../../src/css/advancedSelectElement.css';
-export interface IAdvancesSelectElementItemsFunctionApi {
+import '../../src/css/AdvancedSelectElement.bare.css';
+export type TAdvancedSelectElementItemsFunctionApi = {
     search: string;
     items: any[];
-}
-export interface IAdvancedSelectElementItemState {
+};
+export type TAdvancedSelectElementItemState = {
     match: boolean;
     preselected: boolean;
     selected: boolean;
-}
-export interface IAdvancedSelectElementItem {
+};
+export type TAdvancedSelectElementItem = {
     id: string;
     type?: 'item' | 'group';
-    state: IAdvancedSelectElementItemState;
+    state: TAdvancedSelectElementItemState;
     [key: string]: any;
-}
-export interface IAdvancesSelectElementClasses {
+};
+export type TAdvancedSelectElementClasses = {
     container?: string;
     input?: string;
     dropdown?: string;
@@ -26,15 +26,15 @@ export interface IAdvancesSelectElementClasses {
     after?: string;
     keywords?: string;
     group?: string;
-}
-export interface IAdvancesSelectElementApi {
+};
+export type TAdvancedSelectElementApi = {
     type: string;
     item: any;
     $items: any[];
     html: Function;
     unsafeHTML: Function;
     idx: number;
-}
+};
 /**
  * @name                AdvancedSelectElement
  * @as                  Filtrable input
@@ -137,7 +137,7 @@ export default class AdvancedSelectElement extends __LitElement {
     private _items;
     private _filteredItems;
     private _isLoading;
-    items: any[] | ((api: IAdvancesSelectElementItemsFunctionApi) => any[]);
+    items: any[] | ((api: TAdvancedSelectElementItemsFunctionApi) => any[]);
     value: string | Function;
     label: string | Function;
     showKeywords: boolean;
@@ -147,12 +147,12 @@ export default class AdvancedSelectElement extends __LitElement {
     filterItems?: Function;
     minChars: number;
     filtrable: string[];
-    templates?: (api: IAdvancesSelectElementApi) => any;
+    templates?: (api: TAdvancedSelectElementApi) => any;
     closeTimeout: number;
     interactive: boolean;
     notSelectable: boolean;
     maxItems: number;
-    classes: IAdvancesSelectElementClasses;
+    classes: TAdvancedSelectElementClasses;
     inline: boolean;
     private _$container;
     private _$list;
@@ -169,7 +169,7 @@ export default class AdvancedSelectElement extends __LitElement {
     protected updated(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void;
     firstUpdated(): Promise<void>;
     _grabTemplates(): void;
-    _renderTemplate(api: Partial<IAdvancesSelectElementApi>): any;
+    _renderTemplate(api: Partial<TAdvancedSelectElementApi>): any;
     validate(): void;
     validateAndClose(): void;
     /**
@@ -189,17 +189,17 @@ export default class AdvancedSelectElement extends __LitElement {
      *  Reset
      */
     reset(): void;
-    getItemById(id: string): IAdvancedSelectElementItem;
-    getPreselectedItem(): IAdvancedSelectElementItem;
-    getSelectedItem(): IAdvancedSelectElementItem;
-    getMatchItems(): IAdvancedSelectElementItem[];
+    getItemById(id: string): TAdvancedSelectElementItem;
+    getPreselectedItem(): TAdvancedSelectElementItem;
+    getSelectedItem(): TAdvancedSelectElementItem;
+    getMatchItems(): TAdvancedSelectElementItem[];
     open(): Promise<void>;
     close(): void;
     private _isLoadingTimeout;
     refreshItems(): Promise<void>;
-    _initItems(items: any[]): IAdvancedSelectElementItem[];
-    _initItem(item: Partial<IAdvancedSelectElementItem>): IAdvancedSelectElementItem | undefined;
-    _getItemsOnly(): IAdvancedSelectElementItem[];
+    _initItems(items: any[]): TAdvancedSelectElementItem[];
+    _initItem(item: Partial<TAdvancedSelectElementItem>): TAdvancedSelectElementItem | undefined;
+    _getItemsOnly(): TAdvancedSelectElementItem[];
     _filterItems(): Promise<void>;
     /**
      * Maintain the dropdown position and size
@@ -209,8 +209,8 @@ export default class AdvancedSelectElement extends __LitElement {
      * This function just remove a keyword from the input and filter the items again
      */
     _removeKeyword(keyword: string): void;
-    _renderItems(items: IAdvancedSelectElementItem[], inGroup?: boolean): any;
-    _renderItem(item: IAdvancedSelectElementItem, idx: number, inGroup?: boolean): any;
+    _renderItems(items: TAdvancedSelectElementItem[], inGroup?: boolean): any;
+    _renderItem(item: TAdvancedSelectElementItem, idx: number, inGroup?: boolean): any;
     private _currentItemIdx;
     render(): import("lit-html").TemplateResult<1>;
 }

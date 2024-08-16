@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import __LitElement from '@lotsof/litElement';
+import __LitElement from '@lotsof/lit-element';
 // @TODO            check why import does not work
 // @ts-ignore
 import { __isFocusWithin } from '@lotsof/sugar/is';
@@ -13,7 +13,7 @@ import { __nearestElement } from '@lotsof/sugar/dom';
 
 import { __escapeQueue } from '@lotsof/sugar/keyboard';
 
-import '../../src/css/advancedSelectElement.css';
+import '../../src/css/AdvancedSelectElement.bare.css';
 
 import {
   __distanceFromElementTopToViewportBottom,
@@ -24,25 +24,25 @@ import {
 
 import { __stripTags } from '@lotsof/sugar/html';
 
-export interface IAdvancesSelectElementItemsFunctionApi {
+export type TAdvancedSelectElementItemsFunctionApi = {
   search: string;
   items: any[];
-}
+};
 
-export interface IAdvancedSelectElementItemState {
+export type TAdvancedSelectElementItemState = {
   match: boolean;
   preselected: boolean;
   selected: boolean;
-}
+};
 
-export interface IAdvancedSelectElementItem {
+export type TAdvancedSelectElementItem = {
   id: string;
   type?: 'item' | 'group';
-  state: IAdvancedSelectElementItemState;
+  state: TAdvancedSelectElementItemState;
   [key: string]: any;
-}
+};
 
-export interface IAdvancesSelectElementClasses {
+export type TAdvancedSelectElementClasses = {
   container?: string;
   input?: string;
   dropdown?: string;
@@ -52,16 +52,16 @@ export interface IAdvancesSelectElementClasses {
   after?: string;
   keywords?: string;
   group?: string;
-}
+};
 
-export interface IAdvancesSelectElementApi {
+export type TAdvancedSelectElementApi = {
   type: string;
   item: any;
   $items: any[];
   html: Function;
   unsafeHTML: Function;
   idx: number;
-}
+};
 
 /**
  * @name                AdvancedSelectElement
@@ -167,10 +167,10 @@ export default class AdvancedSelectElement extends __LitElement {
   private _filterValue: string = '';
 
   @state()
-  private _items: IAdvancedSelectElementItem[] = [];
+  private _items: TAdvancedSelectElementItem[] = [];
 
   @state()
-  private _filteredItems: IAdvancedSelectElementItem[] = [];
+  private _filteredItems: TAdvancedSelectElementItem[] = [];
 
   @state()
   private _isLoading: boolean = false;
@@ -178,7 +178,7 @@ export default class AdvancedSelectElement extends __LitElement {
   @property()
   public items:
     | any[]
-    | ((api: IAdvancesSelectElementItemsFunctionApi) => any[]) = [];
+    | ((api: TAdvancedSelectElementItemsFunctionApi) => any[]) = [];
 
   @property()
   public value: string | Function = 'value';
@@ -208,7 +208,7 @@ export default class AdvancedSelectElement extends __LitElement {
   public filtrable: string[] = [];
 
   @property()
-  public templates?: (api: IAdvancesSelectElementApi) => any;
+  public templates?: (api: TAdvancedSelectElementApi) => any;
 
   @property()
   public closeTimeout: number = 100;
@@ -223,7 +223,7 @@ export default class AdvancedSelectElement extends __LitElement {
   public maxItems: number = -1;
 
   @property()
-  public classes: IAdvancesSelectElementClasses = {};
+  public classes: TAdvancedSelectElementClasses = {};
 
   @property()
   public inline: boolean = false;
@@ -236,12 +236,10 @@ export default class AdvancedSelectElement extends __LitElement {
   private _templatesFromHtml: Record<string, string> = {};
   private _isArrowUsed: boolean = false;
   private _isArrowUsedTimeout?: Timeout;
-  private _baseTemplates = (api: IAdvancesSelectElementApi): any => {};
+  private _baseTemplates = (api: TAdvancedSelectElementApi): any => {};
 
   constructor() {
-    super({
-      name: 'advanced-select',
-    });
+    super('s-advanced-select');
   }
   async mount() {
     this._displayedMaxItems = this.maxItems;
@@ -495,8 +493,8 @@ export default class AdvancedSelectElement extends __LitElement {
     });
   }
 
-  _renderTemplate(api: Partial<IAdvancesSelectElementApi>): any {
-    const finalApi: IAdvancesSelectElementApi = {
+  _renderTemplate(api: Partial<TAdvancedSelectElementApi>): any {
+    const finalApi: TAdvancedSelectElementApi = {
       type: '',
       item: null,
       html: html,
@@ -531,6 +529,8 @@ export default class AdvancedSelectElement extends __LitElement {
     } else {
       value = item[this.value];
     }
+
+    console.log('V', value);
 
     if (!item.preventSet) {
       if (typeof value !== 'string') {
@@ -636,16 +636,16 @@ export default class AdvancedSelectElement extends __LitElement {
     this._filterItems();
     this.dispatch('reset');
   }
-  getItemById(id: string): IAdvancedSelectElementItem {
+  getItemById(id: string): TAdvancedSelectElementItem {
     return this._filteredItems.find((item) => item.id === id);
   }
-  getPreselectedItem(): IAdvancedSelectElementItem {
+  getPreselectedItem(): TAdvancedSelectElementItem {
     return this._filteredItems.find((item) => item.state.preselected);
   }
-  getSelectedItem(): IAdvancedSelectElementItem {
+  getSelectedItem(): TAdvancedSelectElementItem {
     return this._filteredItems.find((item) => item.state.selected);
   }
-  getMatchItems(): IAdvancedSelectElementItem[] {
+  getMatchItems(): TAdvancedSelectElementItem[] {
     return this._filteredItems.filter((item) => item.state.match);
   }
   async open() {
@@ -708,7 +708,7 @@ export default class AdvancedSelectElement extends __LitElement {
     this._isLoading = false;
   }
 
-  _initItems(items: any[]): IAdvancedSelectElementItem[] {
+  _initItems(items: any[]): TAdvancedSelectElementItem[] {
     return items.map((item) => {
       if (item.items) {
         item.items = this._initItems(item.items);
@@ -718,8 +718,8 @@ export default class AdvancedSelectElement extends __LitElement {
   }
 
   _initItem(
-    item: Partial<IAdvancedSelectElementItem>,
-  ): IAdvancedSelectElementItem | undefined {
+    item: Partial<TAdvancedSelectElementItem>,
+  ): TAdvancedSelectElementItem | undefined {
     if (item.type === 'group') {
       return;
     }
@@ -737,10 +737,10 @@ export default class AdvancedSelectElement extends __LitElement {
     if (!item.type) {
       item.type = 'item';
     }
-    return item as IAdvancedSelectElementItem;
+    return item as TAdvancedSelectElementItem;
   }
 
-  _getItemsOnly(): IAdvancedSelectElementItem[] {
+  _getItemsOnly(): TAdvancedSelectElementItem[] {
     const itemsOnly: any[] = [];
     this._items.forEach((item) => {
       if (item.type == 'group') {
@@ -887,7 +887,7 @@ export default class AdvancedSelectElement extends __LitElement {
   }
 
   _renderItems(
-    items: IAdvancedSelectElementItem[],
+    items: TAdvancedSelectElementItem[],
     inGroup: boolean = false,
   ): any {
     return html`${items.map((item, idx) => {
@@ -896,7 +896,7 @@ export default class AdvancedSelectElement extends __LitElement {
   }
 
   _renderItem(
-    item: IAdvancedSelectElementItem,
+    item: TAdvancedSelectElementItem,
     idx: number,
     inGroup: boolean = false,
   ): any {

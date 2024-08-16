@@ -1,16 +1,16 @@
-.advanced-select {
+.s-advanced-select {
   display: flex;
   flex-direction: column;
   position: relative;
 
-  .advanced-select_keywords,
-  .advanced-select_before,
-  .advanced-select_after {
+  .s-advanced-select_keywords,
+  .s-advanced-select_before,
+  .s-advanced-select_after {
     flex-grow: 0;
     width: 100%;
   }
 
-  .advanced-select_dropdown {
+  .s-advanced-select_dropdown {
     position: absolute;
     z-index: 10;
     top: 100%;
@@ -26,37 +26,37 @@
     transform: translateX(-50%);
   }
 
-  &:focus-within .advanced-select_dropdown {
+  &:focus-within .s-advanced-select_dropdown {
     pointer-events: all;
     opacity: 1;
   }
 
   &.-top {
-    .advanced-select_dropdown {
+    .s-advanced-select_dropdown {
       top: auto;
       bottom: 100%;
     }
   }
 
-  .advanced-select_input:focus + .advanced-select_dropdown,
-  .advanced-select_dropdown:focus,
-  .advanced-select_dropdown:focus-within {
+  .s-advanced-select_input:focus + .s-advanced-select_dropdown,
+  .s-advanced-select_dropdown:focus,
+  .s-advanced-select_dropdown:focus-within {
     opacity: 1;
     pointer-events: all !important;
   }
 
-  .advanced-select_items {
+  .s-advanced-select_items {
     overflow-x: hidden;
     overflow-y: auto;
   }
 
-  .advanced-select_item {
+  .s-advanced-select_item {
     position: relative;
     user-select: none;
     outline: none;
   }
 
-  &:not([interactive]) .advanced-select_item {
+  &:not([interactive]) .s-advanced-select_item {
     cursor: pointer;
     * {
       pointer-events: none;
@@ -64,8 +64,8 @@
   }
 }
 
-.advanced-select[inline] {
-  .advanced-select_dropdown {
+.s-advanced-select[inline] {
+  .s-advanced-select_dropdown {
     position: static;
     margin: 0;
     max-width: 100%;
