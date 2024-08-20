@@ -1,43 +1,10 @@
 import __LitElement from '@lotsof/lit-element';
 import { PropertyValueMap } from 'lit';
 import '../../src/css/AdvancedSelectElement.bare.css';
-export type TAdvancedSelectElementItemsFunctionApi = {
-    search: string;
-    items: any[];
-};
-export type TAdvancedSelectElementItemState = {
-    match: boolean;
-    preselected: boolean;
-    selected: boolean;
-};
-export type TAdvancedSelectElementItem = {
-    id: string;
-    type?: 'item' | 'group';
-    state: TAdvancedSelectElementItemState;
-    [key: string]: any;
-};
-export type TAdvancedSelectElementClasses = {
-    container?: string;
-    input?: string;
-    dropdown?: string;
-    items?: string;
-    item?: string;
-    before?: string;
-    after?: string;
-    keywords?: string;
-    group?: string;
-};
-export type TAdvancedSelectElementApi = {
-    type: string;
-    item: any;
-    $items: any[];
-    html: Function;
-    unsafeHTML: Function;
-    idx: number;
-};
+import type { TAdvancedSelectElementApi, TAdvancedSelectElementClasses, TAdvancedSelectElementItemsFunctionApi } from '../shared/AdvancedSelectElement.types.js';
 /**
  * @name                AdvancedSelectElement
- * @as                  Filtrable input
+ * @as                  Advanced Select Input
  * @namespace           js
  * @type                CustomElement
  * @interface           ./interface/AdvancedSelectElementInterface.ts
@@ -51,12 +18,13 @@ export type TAdvancedSelectElementApi = {
  * @feature           Fully customizable
  * @feature           Built-in search
  *
- * @event           advancedSelect.items                Dispatched when the items are setted of updated
- * @event           advancedSelect.select               Dispatched when an item has been selected
- * @event           advancedSelect.close                Dispatched when the dropdown is closed
- * @event           advancedSelect.open                 Dispatched when the dropdown is opened
- * @event           advancedSelect.reset                Dispatched when the input is resetted
- * @event           advancedSelect.loading              Dispatched when the element enterd in loading state
+ * @event           sAdvancedSelect.items                Dispatched when the items are setted of updated
+ * @event           sAdvancedSelect.select               Dispatched when an item has been selected
+ * @event           sAdvancedSelect.preselect            Dispatched when an item has been preselected
+ * @event           sAdvancedSelect.close                Dispatched when the dropdown is closed
+ * @event           sAdvancedSelect.open                 Dispatched when the dropdown is opened
+ * @event           sAdvancedSelect.reset                Dispatched when the input is resetted
+ * @event           sAdvancedSelect.loading              Dispatched when the element enterd in loading state
  *
  *
  * @support         chromium
@@ -144,9 +112,11 @@ export default class AdvancedSelectElement extends __LitElement {
     emptyText: string;
     loadingText: string;
     filterValuePreprocess?: Function;
+    hotkey?: string;
     filterItems?: Function;
     minChars: number;
     filtrable: string[];
+    highlightable: string;
     templates?: (api: TAdvancedSelectElementApi) => any;
     closeTimeout: number;
     interactive: boolean;
@@ -164,26 +134,25 @@ export default class AdvancedSelectElement extends __LitElement {
     private _isArrowUsedTimeout?;
     private _baseTemplates;
     constructor();
-    mount(): Promise<void>;
+    private mount;
     _loadingTimeout: any;
     protected updated(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void;
-    firstUpdated(): Promise<void>;
-    _grabTemplates(): void;
-    _renderTemplate(api: Partial<TAdvancedSelectElementApi>): any;
-    validate(): void;
-    validateAndClose(): void;
+    protected firstUpdated(): Promise<void>;
+    private _initListeners;
+    private _grabTemplatesFromDom;
+    private _renderTemplate;
     /**
      * Preselect an item
      */
-    preselect(item: any): void;
-    preselectById(id: string): void;
+    preselect(item: string | TAdvancedSelectElementItem, settings?: {
+        preventFocus?: boolean;
+    }): void;
     resetPreselected(): void;
+    setSearch(value: string): void;
     /**
      * Select an item
      */
-    select(item: any): void;
-    selectById(id: string): void;
-    selectValidateAndClose(item: any): void;
+    select(item?: string | TAdvancedSelectElementItem): void;
     resetSelected(): void;
     /**
      *  Reset
@@ -193,24 +162,24 @@ export default class AdvancedSelectElement extends __LitElement {
     getPreselectedItem(): TAdvancedSelectElementItem;
     getSelectedItem(): TAdvancedSelectElementItem;
     getMatchItems(): TAdvancedSelectElementItem[];
-    open(): Promise<void>;
+    open(): void;
     close(): void;
     private _isLoadingTimeout;
     refreshItems(): Promise<void>;
-    _initItems(items: any[]): TAdvancedSelectElementItem[];
-    _initItem(item: Partial<TAdvancedSelectElementItem>): TAdvancedSelectElementItem | undefined;
-    _getItemsOnly(): TAdvancedSelectElementItem[];
-    _filterItems(): Promise<void>;
+    private _initItems;
+    private _initItem;
+    private _getItemsOnly;
+    private _filterItems;
     /**
      * Maintain the dropdown position and size
      */
-    _updateListSizeAndPosition(): void;
+    private _updateListSizeAndPosition;
     /**
      * This function just remove a keyword from the input and filter the items again
      */
-    _removeKeyword(keyword: string): void;
-    _renderItems(items: TAdvancedSelectElementItem[], inGroup?: boolean): any;
-    _renderItem(item: TAdvancedSelectElementItem, idx: number, inGroup?: boolean): any;
+    private _removeKeyword;
+    private _renderItems;
+    private _renderItem;
     private _currentItemIdx;
     render(): import("lit-html").TemplateResult<1>;
 }

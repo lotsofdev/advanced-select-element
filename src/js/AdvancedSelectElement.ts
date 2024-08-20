@@ -1,5 +1,7 @@
 // @ts-nocheck
 
+import { __highlightText } from '@lotsof/sugar/string';
+
 import __LitElement from '@lotsof/lit-element';
 // @TODO            check why import does not work
 // @ts-ignore
@@ -8,6 +10,12 @@ import { __uniqid } from '@lotsof/sugar/string';
 import { PropertyValueMap, html } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+
+import { __escapeRegexChars } from '@lotsof/sugar/string';
+
+import { __i18n } from '@lotsof/i18n';
+
+import { __hotkey } from '@lotsof/sugar/keyboard';
 
 import { __nearestElement } from '@lotsof/sugar/dom';
 
@@ -24,48 +32,15 @@ import {
 
 import { __stripTags } from '@lotsof/sugar/html';
 
-export type TAdvancedSelectElementItemsFunctionApi = {
-  search: string;
-  items: any[];
-};
-
-export type TAdvancedSelectElementItemState = {
-  match: boolean;
-  preselected: boolean;
-  selected: boolean;
-};
-
-export type TAdvancedSelectElementItem = {
-  id: string;
-  type?: 'item' | 'group';
-  state: TAdvancedSelectElementItemState;
-  [key: string]: any;
-};
-
-export type TAdvancedSelectElementClasses = {
-  container?: string;
-  input?: string;
-  dropdown?: string;
-  items?: string;
-  item?: string;
-  before?: string;
-  after?: string;
-  keywords?: string;
-  group?: string;
-};
-
-export type TAdvancedSelectElementApi = {
-  type: string;
-  item: any;
-  $items: any[];
-  html: Function;
-  unsafeHTML: Function;
-  idx: number;
-};
+import type {
+  TAdvancedSelectElementApi,
+  TAdvancedSelectElementClasses,
+  TAdvancedSelectElementItemsFunctionApi,
+} from '../shared/AdvancedSelectElement.types.js';
 
 /**
  * @name                AdvancedSelectElement
- * @as                  Filtrable input
+ * @as                  Advanced Select Input
  * @namespace           js
  * @type                CustomElement
  * @interface           ./interface/AdvancedSelectElementInterface.ts
@@ -79,12 +54,13 @@ export type TAdvancedSelectElementApi = {
  * @feature           Fully customizable
  * @feature           Built-in search
  *
- * @event           advancedSelect.items                Dispatched when the items are setted of updated
- * @event           advancedSelect.select               Dispatched when an item has been selected
- * @event           advancedSelect.close                Dispatched when the dropdown is closed
- * @event           advancedSelect.open                 Dispatched when the dropdown is opened
- * @event           advancedSelect.reset                Dispatched when the input is resetted
- * @event           advancedSelect.loading              Dispatched when the element enterd in loading state
+ * @event           sAdvancedSelect.items                Dispatched when the items are setted of updated
+ * @event           sAdvancedSelect.select               Dispatched when an item has been selected
+ * @event           sAdvancedSelect.preselect            Dispatched when an item has been preselected
+ * @event           sAdvancedSelect.close                Dispatched when the dropdown is closed
+ * @event           sAdvancedSelect.open                 Dispatched when the dropdown is opened
+ * @event           sAdvancedSelect.reset                Dispatched when the input is resetted
+ * @event           sAdvancedSelect.loading              Dispatched when the element enterd in loading state
  *
  *
  * @support         chromium
@@ -186,46 +162,52 @@ export default class AdvancedSelectElement extends __LitElement {
   @property()
   public label: string | Function = 'label';
 
-  @property()
+  @property({ type: Boolean })
   public showKeywords: boolean = false;
 
-  @property()
-  public emptyText: string = 'No items found...';
+  @property({ type: String })
+  public emptyText: string = __i18n('No items found...');
 
-  @property()
-  public loadingText: string = 'Loading, please wait...';
+  @property({ type: String })
+  public loadingText: string = __i18n('Loading, please wait...');
 
-  @property()
+  @property({ type: Function })
   public filterValuePreprocess?: Function;
 
-  @property()
+  @property({ type: String })
+  public hotkey?: string;
+
+  @property({ type: Function })
   public filterItems?: Function;
 
-  @property()
-  public minChars: number = 2;
+  @property({ type: Number })
+  public minChars: number = 1;
 
-  @property()
+  @property({ type: Array })
   public filtrable: string[] = [];
 
-  @property()
+  @property({ type: Array })
+  public highlightable: string = [];
+
+  @property({ type: Object })
   public templates?: (api: TAdvancedSelectElementApi) => any;
 
-  @property()
+  @property({ type: Number })
   public closeTimeout: number = 100;
 
-  @property()
+  @property({ type: Boolean })
   public interactive: boolean = true;
 
-  @property()
+  @property({ type: Boolean })
   public notSelectable: boolean = false;
 
-  @property()
+  @property({ type: Number })
   public maxItems: number = -1;
 
-  @property()
+  @property({ type: Object })
   public classes: TAdvancedSelectElementClasses = {};
 
-  @property()
+  @property({ type: Boolean })
   public inline: boolean = false;
 
   private _$container: HTMLElement = document.createElement('div');
@@ -241,15 +223,24 @@ export default class AdvancedSelectElement extends __LitElement {
   constructor() {
     super('s-advanced-select');
   }
-  async mount() {
+  private async mount() {
     this._displayedMaxItems = this.maxItems;
 
     // filtrable
     if (typeof this.filtrable === 'string') {
       this.filtrable = (<string>this.filtrable).split(',').map((f) => f.trim());
     }
-    if (!this.filtrable.length && typeof this.label === 'string') {
-      this.filtrable.push(this.label);
+    if (!this.filtrable.length) {
+      this.filtrable.push('id');
+      this.filtrable.push('value');
+      if (typeof this.label === 'string') {
+        this.filtrable.push(this.label);
+      }
+    }
+    if (!this.highlightable.length) {
+      if (typeof this.label === 'string') {
+        this.highlightable.push(this.label);
+      }
     }
     if (!this.filtrable.length) {
       throw new Error(
@@ -264,35 +255,37 @@ export default class AdvancedSelectElement extends __LitElement {
           return html`
             ${unsafeHTML(
               typeof this.label === 'function'
-                ? this.label({ item })
-                : item[this.label],
+                ? __i18n(this.label({ item }))
+                : __i18n(item[this.label]),
             )}
           `;
           break;
         case 'group':
           return html` <h4 class="${this.cls('_group-label')}">
-              ${item.label}
+              ${__i18n(item.label)}
             </h4>
             <ul class="${this.cls('_group-items')}">
               <div class="${this.cls('_group-items-inner')}">${$items}</div>
             </ul>`;
           break;
         case 'empty':
-          return;
-          return html`
-            <div class="${this.cls('_empty')}">${this.emptyText}</div>
-          `;
+          return html` <div>${__i18n(this.emptyText)}</div> `;
           break;
         case 'loading':
           return html`
-            <div class="${this.cls('_loading')}">${this.loadingText}</div>
+            <div class="${this.cls('_loading')}">
+              ${__i18n(this.loadingText)}
+            </div>
           `;
           break;
       }
     };
 
     // grab templates
-    this._grabTemplates();
+    this._grabTemplatesFromDom();
+
+    // init listeners (hotkeys, etc...)
+    this._initListeners();
 
     // if we have the focus in
     if (__isFocusWithin(this)) {
@@ -336,7 +329,7 @@ export default class AdvancedSelectElement extends __LitElement {
     }
   }
 
-  async firstUpdated() {
+  protected async firstUpdated() {
     // input
     this._$input =
       <any>this.querySelector('input') ?? document.createElement('input');
@@ -407,7 +400,7 @@ export default class AdvancedSelectElement extends __LitElement {
     // get the list and the dropdown
     this._$list = this.querySelector('ul') as HTMLUListElement;
     this._$dropdown = this.querySelector(
-      `.${this.cls('_dropdown')}`,
+      `.${this.internalCls('_dropdown')}`,
     ) as HTMLElement;
 
     // handle scroll behaviors
@@ -444,21 +437,26 @@ export default class AdvancedSelectElement extends __LitElement {
         this._isArrowUsed = false;
       }, 100);
 
-      const $items = this.querySelectorAll(`.${this.cls('_item')}.-match`),
+      const $items = this.querySelectorAll(
+          `.${this.internalCls('_item')}.-match`,
+        ),
         $from =
-          this.querySelector(`.${this.cls('_item')}.-preselected`) ||
-          this.querySelector(`.${this.cls('_item')}.-selected`) ||
-          this.querySelectorAll(`.${this.cls('_item')}`)[0];
+          this.querySelector(`.${this.internalCls('_item')}.-preselected`) ||
+          this.querySelector(`.${this.internalCls('_item')}.-selected`) ||
+          this.querySelectorAll(`.${this.internalCls('_item')}`)[0];
 
       let direction;
 
       if (!this.getPreselectedItem()) {
-        $items[0]?.focus();
+        this.preselect($items[0].dataset.id);
       } else {
         let $nearestElement: HTMLElement = __nearestElement($from, $items, {
           direction: directionsMap[e.key],
         });
-        $nearestElement?.focus();
+        if (!$nearestElement) {
+          return;
+        }
+        this.preselect($nearestElement.dataset.id);
       }
     });
 
@@ -470,12 +468,13 @@ export default class AdvancedSelectElement extends __LitElement {
 
       // protect agains actions when not focus
       if (!this.isActive()) return;
-      this.validateAndClose();
+      this.select();
     });
 
     // restore value from state
     if (this._filterValue) {
-      this._$input.value = this._filterValue;
+      this.setSearch(this._filterValue);
+      // this._$input.value = this._filterValue;
     }
 
     // open if a value exists
@@ -484,7 +483,16 @@ export default class AdvancedSelectElement extends __LitElement {
     }
   }
 
-  _grabTemplates() {
+  private _initListeners(): void {
+    // handle hotkeys
+    if (this.hotkey) {
+      __hotkey(this.hotkey, () => {
+        this._$input.focus();
+      });
+    }
+  }
+
+  private _grabTemplatesFromDom() {
     this.querySelectorAll('template').forEach(($template) => {
       if (!$template.hasAttribute('type')) return;
       // @ts-ignore
@@ -493,7 +501,7 @@ export default class AdvancedSelectElement extends __LitElement {
     });
   }
 
-  _renderTemplate(api: Partial<TAdvancedSelectElementApi>): any {
+  private _renderTemplate(api: Partial<TAdvancedSelectElementApi>): any {
     const finalApi: TAdvancedSelectElementApi = {
       type: '',
       item: null,
@@ -514,61 +522,19 @@ export default class AdvancedSelectElement extends __LitElement {
     // @ts-ignore
     return this._baseTemplates(finalApi);
   }
-  validate() {
-    const item = this.getSelectedItem() || this.getPreselectedItem();
-    if (!item) {
-      return;
-    }
-
-    // process value
-    let value;
-    if (typeof this.value === 'function') {
-      value = this.value({
-        items: [item],
-      });
-    } else {
-      value = item[this.value];
-    }
-
-    console.log('V', value);
-
-    if (!item.preventSet) {
-      if (typeof value !== 'string') {
-        throw new Error(
-          `<red>[advancedSelect]</red> Sorry but the returned value "<yellow>${value}</yellow>" has to be a string...`,
-        );
-      }
-      (<HTMLInputElement>this._$input).value = __stripTags(value);
-    }
-
-    // dispatch an event
-    if (!item.preventSelect) {
-      this.dispatch('select', {
-        detail: {
-          item,
-          $elm: this.querySelector(
-            `.${this.cls('_item')}[data-id="${item.id}"]`,
-          ),
-        },
-      });
-    }
-
-    // reset
-    this.reset();
-
-    // this.requestUpdate();
-  }
-  validateAndClose() {
-    this.validate();
-    setTimeout(() => {
-      this.close();
-    }, this.closeTimeout);
-  }
 
   /**
    * Preselect an item
    */
-  preselect(item) {
+  public preselect(
+    item: string | TAdvancedSelectElementItem,
+    settings?: {
+      preventFocus?: boolean;
+    },
+  ): void {
+    if (typeof item === 'string') {
+      item = this.getItemById(item);
+    }
     // reset preselected
     this.getPreselectedItem()?.state.preselected = false;
     // check if the component is in not selectable mode
@@ -578,24 +544,38 @@ export default class AdvancedSelectElement extends __LitElement {
     // set the new preselected
     item.state.preselected = true;
     // set focus in the input
-    setTimeout(() => {
-      this._$input.focus();
-    });
+    if (!settings?.preventFocus) {
+      setTimeout(() => {
+        this._$input.focus();
+      });
+    }
+    // make sure the ui is up to date
+    this.requestUpdate();
   }
-  preselectById(id: string) {
-    this.preselect(this.getItemById(id));
-  }
-  resetPreselected() {
+
+  public resetPreselected(): void {
     this.getPreselectedItem()?.state.preselected = false;
-    // this.requestUpdate();
+  }
+
+  public async setSearch(value: string): void {
+    this._$input.value = value;
+    this._filterValue = value;
+    this._filterItems();
+    await this.refreshItems();
+    this.requestUpdate();
   }
 
   /**
    * Select an item
    */
-  select(item) {
+  public select(
+    item: string | TAdvancedSelectElementItem = this.getPreselectedItem(),
+  ): void {
+    if (typeof item === 'string') {
+      item = this.getItemById(item);
+    }
     // reset preselected
-    this.getPreselectedItem()?.state.selected = false;
+    // this.getPreselectedItem()?.state.selected = false;
     // check if the component is in not selectable mode
     if (this.notSelectable) return;
     // do not select if not match the search
@@ -604,51 +584,65 @@ export default class AdvancedSelectElement extends __LitElement {
     item.state.selected = true;
     // set focus in the input
     setTimeout(() => {
-      this._$input.focus();
+      if (!item.preventSet) {
+        this.setSearch(item.value ?? item.id);
+      } else {
+        this.setSearch('');
+      }
+      if (item.preventClose) {
+        this._$input.focus();
+      }
     });
-    // update component
-    // this.requestUpdate();
+
+    // close if not prevented
+    if (!item.preventClose) {
+      this.close();
+    }
+
+    // dispatch an event
+    if (!item.preventSelect) {
+      this.dispatch('select', {
+        detail: {
+          item,
+          $elm: this.querySelector(
+            `.${this.internalCls('_item')}[data-internal-id="${
+              item._internalId
+            }"]`,
+          ),
+        },
+      });
+    }
+
+    // make sure the ui is up to date
+    this.requestUpdate();
   }
-  selectById(id: string) {
-    this.select(this.getItemById(id));
-  }
-  selectValidateAndClose(item) {
-    // do not select if not match the search
-    if (!item.state.match) return;
-    // select the item
-    this.select(item);
-    // validate and close
-    this.validateAndClose();
-  }
-  resetSelected() {
+
+  public resetSelected(): void {
     this.getSelectedItem()?.state.selected = false;
-    // this.requestUpdate();
   }
 
   /**
    *  Reset
    */
-  reset() {
+  public reset() {
     this.resetPreselected();
     this.resetSelected();
-    this._$input.value = '';
-    this._filterValue = '';
-    this._filterItems();
+    this.setSearch('');
     this.dispatch('reset');
   }
-  getItemById(id: string): TAdvancedSelectElementItem {
+  public getItemById(id: string): TAdvancedSelectElementItem {
     return this._filteredItems.find((item) => item.id === id);
   }
-  getPreselectedItem(): TAdvancedSelectElementItem {
+  public getPreselectedItem(): TAdvancedSelectElementItem {
     return this._filteredItems.find((item) => item.state.preselected);
   }
-  getSelectedItem(): TAdvancedSelectElementItem {
+  public getSelectedItem(): TAdvancedSelectElementItem {
     return this._filteredItems.find((item) => item.state.selected);
   }
-  getMatchItems(): TAdvancedSelectElementItem[] {
+  public getMatchItems(): TAdvancedSelectElementItem[] {
     return this._filteredItems.filter((item) => item.state.match);
   }
-  async open() {
+  public async open(): void {
     __escapeQueue(() => {
       if (!this.isActive()) return;
       this.reset();
@@ -657,13 +651,13 @@ export default class AdvancedSelectElement extends __LitElement {
     await this.refreshItems();
     this.dispatch('open');
   }
-  close() {
+  public close(): void {
     (<HTMLElement>document.activeElement)?.blur();
     this.dispatch('close');
   }
 
   private _isLoadingTimeout: any;
-  async refreshItems() {
+  public async refreshItems(): Promise<void> {
     clearTimeout(this._isLoadingTimeout);
     this._isLoadingTimeout = setTimeout(() => {
       this._isLoading = true;
@@ -706,9 +700,14 @@ export default class AdvancedSelectElement extends __LitElement {
     // update component
     clearTimeout(this._isLoadingTimeout);
     this._isLoading = false;
+
+    // preselect the first item in the list
+    this.preselect(this._filteredItems[0], {
+      preventFocus: true,
+    });
   }
 
-  _initItems(items: any[]): TAdvancedSelectElementItem[] {
+  private _initItems(items: any[]): TAdvancedSelectElementItem[] {
     return items.map((item) => {
       if (item.items) {
         item.items = this._initItems(item.items);
@@ -717,7 +716,7 @@ export default class AdvancedSelectElement extends __LitElement {
     });
   }
 
-  _initItem(
+  private _initItem(
     item: Partial<TAdvancedSelectElementItem>,
   ): TAdvancedSelectElementItem | undefined {
     if (item.type === 'group') {
@@ -740,7 +739,7 @@ export default class AdvancedSelectElement extends __LitElement {
     return item as TAdvancedSelectElementItem;
   }
 
-  _getItemsOnly(): TAdvancedSelectElementItem[] {
+  private _getItemsOnly(): TAdvancedSelectElementItem[] {
     const itemsOnly: any[] = [];
     this._items.forEach((item) => {
       if (item.type == 'group') {
@@ -755,7 +754,7 @@ export default class AdvancedSelectElement extends __LitElement {
     return itemsOnly;
   }
 
-  async _filterItems() {
+  private async _filterItems() {
     if (this._filterValue && this._filterValue.length < this.minChars) {
       return;
     }
@@ -768,6 +767,7 @@ export default class AdvancedSelectElement extends __LitElement {
     if (this.filterValuePreprocess) {
       _filterValue = this.filterValuePreprocess(_filterValue);
     }
+    _filterValue = __escapeRegexChars(_filterValue);
 
     let _filteredItems = itemsOnly;
 
@@ -780,9 +780,8 @@ export default class AdvancedSelectElement extends __LitElement {
       );
     } else {
       let matchedItemsCount = 0;
+      if (!this.filtrable.length) return true;
       _filteredItems = _filteredItems.filter((item) => {
-        if (!this.filtrable.length) return true;
-
         let matchFilter = false;
         for (let i = 0; i < Object.keys(item).length; i++) {
           const propName = Object.keys(item)[i];
@@ -806,22 +805,32 @@ export default class AdvancedSelectElement extends __LitElement {
 
           // check if the current propName is specified in the filtrable list
           if (this.filtrable.indexOf(propName) !== -1) {
+            const searchParts = _filterValue
+              .split(' ')
+              .map((v) => v.replace(/[^a-zA-Z0-9 ]/g, '').trim())
+              .filter((v) => v !== '');
+
             const reg = new RegExp(
-              `${_filterValue}`.split(' ').join('|'),
+              `${_filterValue}`
+                .split(' ')
+                .map((v) => {
+                  return v.replace(/[^a-zA-Z0-9 ]+/g, '').trim();
+                })
+                .join('|'),
               'gi',
             );
 
             if (propValue.match(reg)) {
               matchFilter = true;
-              if (_filterValue && _filterValue !== '') {
-                const reg = new RegExp(_filterValue.split(' ').join('|'), 'gi');
-                const finalString = item._original[propName].replace(
-                  reg,
-                  (str) => {
-                    return `<span class="${this.cls('_highlight')}"
-                                      >${str}</span>`;
-                  },
-                );
+              if (
+                this.highlightable.includes(propName) &&
+                _filterValue &&
+                _filterValue !== ''
+              ) {
+                let finalString: string = item._original[propName];
+                finalString = __highlightText(finalString, searchParts, {
+                  class: this.cls('_highlight'),
+                });
                 item[propName] = finalString;
               } else {
                 item[propName] = item._original[propName];
@@ -846,7 +855,7 @@ export default class AdvancedSelectElement extends __LitElement {
   /**
    * Maintain the dropdown position and size
    */
-  _updateListSizeAndPosition() {
+  private _updateListSizeAndPosition() {
     if (!this.isActive() || this.inline) return;
     if (!this._$dropdown) return;
 
@@ -876,17 +885,15 @@ export default class AdvancedSelectElement extends __LitElement {
   /**
    * This function just remove a keyword from the input and filter the items again
    */
-  _removeKeyword(keyword: string): void {
+  private _removeKeyword(keyword: string): void {
     const newValue = this._filterValue
       .split(' ')
       .filter((k) => k !== keyword)
       .join(' ');
-    this._$input.value = newValue;
-    this._filterValue = newValue;
-    this._filterItems();
+    this.setSearch(newValue);
   }
 
-  _renderItems(
+  private _renderItems(
     items: TAdvancedSelectElementItem[],
     inGroup: boolean = false,
   ): any {
@@ -895,12 +902,21 @@ export default class AdvancedSelectElement extends __LitElement {
     })}`;
   }
 
-  _renderItem(
+  private _renderItem(
     item: TAdvancedSelectElementItem,
     idx: number,
     inGroup: boolean = false,
   ): any {
     this._currentItemIdx++;
+
+    if (!item._internalId) {
+      Object.defineProperty(item, '_internalId', {
+        value: `s-${__uniqid()}`,
+        writable: false,
+        enumerable: false,
+        configurable: false,
+      });
+    }
 
     if (
       this.maxItems !== -1 &&
@@ -912,13 +928,13 @@ export default class AdvancedSelectElement extends __LitElement {
     return html`
       <li
         data-id="${item.id}"
-        @pointerup=${() => this.selectValidateAndClose(item)}
+        data-internal-id="${item._internalId}"
+        @pointerup=${() => this.select(item)}
         @mouseover=${() => {
           if (this._isArrowUsed) return;
           this.preselect(item);
           this.requestUpdate();
         }}
-        @focus=${() => this.preselect(item)}
         style="z-index: ${999999999 - idx}"
         tabindex="-1"
         class="${this.cls('_item')} ${this.classes.item} ${inGroup
@@ -940,7 +956,7 @@ export default class AdvancedSelectElement extends __LitElement {
   }
 
   private _currentItemIdx = 0;
-  render() {
+  public render() {
     this._currentItemIdx = 0;
 
     const $before = this._renderTemplate({
@@ -980,7 +996,7 @@ export default class AdvancedSelectElement extends __LitElement {
                         tabindex="-1"
                         @click=${() => this._removeKeyword(keyword)}
                         class="${this.cls('_keyword')}"
-                        >${keyword}</span
+                        >${__i18n(keyword)}</span
                       >
                     `,
                   )}
@@ -990,11 +1006,7 @@ export default class AdvancedSelectElement extends __LitElement {
         <ul class="${this.cls('_items')} ${this.classes.items}">
           ${this._isLoading
             ? html`
-                <li
-                  class="${this.cls('_item')} ${this.classes.item} ${this.cls(
-                    '_loading',
-                  )}"
-                >
+                <li class="${this.classes.item} ${this.cls('_loading')}">
                   ${this._renderTemplate({
                     type: 'loading',
                   })}
@@ -1002,11 +1014,7 @@ export default class AdvancedSelectElement extends __LitElement {
               `
             : !this._isLoading && this._filteredItems.length <= 0 && $empty
             ? html`
-                <li
-                  class="${this.cls('_item')} ${this.classes.item} ${this.cls(
-                    '_no-item',
-                  )}"
-                >
+                <li class="${this.classes.item} ${this.cls('_empty')}">
                   ${$empty}
                 </li>
               `

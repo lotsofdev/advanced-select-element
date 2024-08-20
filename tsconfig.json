@@ -8,8 +8,8 @@
   ],
   "compilerOptions": {
     "noImplicitAny": false,
-    "rootDir": "src/js",
-    "outDir": "dist/js",
+    "rootDir": "src",
+    "outDir": "dist",
     "skipLibCheck": true,
     "strict": true,
     "target": "es6",

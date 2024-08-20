@@ -1,0 +1,64 @@
+.s-advanced-select {
+  &.-bottom {
+  }
+  &.-top {
+  }
+  &.-empty {
+  }
+  &.-loading {
+  }
+  &.-filtered {
+  }
+  &.-inline {
+  }
+
+  .s-advanced-select_before {
+  }
+
+  .s-advanced-select_after {
+  }
+
+  .s-advanced-select_input {
+  }
+
+  .s-advanced-select_dropdown {
+  }
+
+  .s-advanced-select_keywords {
+  }
+  .s-advanced-select_keyword {
+  }
+
+  .s-advanced-select_items {
+  }
+  .s-advanced-select_item {
+    &.-preselected {
+    }
+    &.-selected {
+    }
+    &.-filtered {
+    }
+    &.-match {
+    }
+  }
+  .s-advanced-select_group-item {
+  }
+
+  .s-advanced-select_highlight {
+  }
+
+  .s-advanced-select_group {
+  }
+  .s-advanced-select_group-label {
+  }
+
+  .s-advanced-select_group-items {
+  }
+  .s-advanced-select_group-items-inner {
+  }
+
+  .s-advanced-select_empty {
+  }
+  .s-advanced-select_loading {
+  }
+}
