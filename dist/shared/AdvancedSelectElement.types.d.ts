@@ -10,6 +10,7 @@ export type TAdvancedSelectElementItemState = {
 export type TAdvancedSelectElementItem = {
     id: string;
     type?: 'item' | 'group';
+    items?: TAdvancedSelectElementItem[];
     state?: TAdvancedSelectElementItemState;
     preventClose?: boolean;
     preventSelect?: boolean;
@@ -28,7 +29,7 @@ export type TAdvancedSelectElementClasses = {
     group?: string;
 };
 export type TAdvancedSelectElementApi = {
-    type: string;
+    type: 'item' | 'group' | 'loading' | 'before' | 'after' | 'empty' | string;
     item: any;
     $items: any[];
     html: Function;

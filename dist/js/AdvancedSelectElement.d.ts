@@ -18,6 +18,26 @@ import type { TAdvancedSelectElementApi, TAdvancedSelectElementClasses, TAdvance
  * @feature           Fully customizable
  * @feature           Built-in search
  *
+ * @attribute       {String|Function}         [items]                         The items to display in the dropdown. Can be a JSON string, a url to an api endpoints, a string that represent a query selector to a script tag, or a function that return the items
+ * @attribute       {String}        [value=value]                                   The value property to use to display the items
+ * @attribute       {String}        [label=label]                                   The label property to use to display the items
+ * @attribute       {Boolean}       [showKeywords=false]                            Specify if you want to show the keywords in the dropdown
+ * @attribute       {String}        [emptyText=No items found...]                   The text to display when no items are found
+ * @attribute       {String}        [loadingText=Loading, please wait...]           The text to display when the component is in loading state
+ * @attribute       {Function}      [filterValuePreprocess]                         A function to preprocess the filter value before filtering the items
+ * @attribute       {String}        [hotkey=null]                                   A hotkey to focus the input
+ * @attribute       {Function}      [filterItems=null]                              A function to filter the items
+ * @attribute       {Number}        [minChars=1]                                    The minimum characters to type before filtering the items
+ * @attribute       {Array}         [filtrable=[id,value,label]]                    The properties to filter on
+ * @attribute       {Array}         [highlightable=[label]]                         The properties to highlight in the dropdown
+ * @attribute       {Function}      [templates=null]                                A function to render the templates
+ * @attribute       {Number}        [closeTimeout=100]                              The timeout to wait before closing the dropdown
+ * @attribute       {Boolean}       [notSelectable=false]                           Specify if the component is not selectable
+ * @attribute       {Number}        [maxItems=-1]                                   The maximum items to display in the dropdown
+ * @attribute       {TAdvancedSelectElementClasses}        [classes=null]                                  Some classes to apply to the different elements
+ * @attribute       {Boolean}       [inline=false]                                  Specify if the dropdown should be displayed inline
+ *
+ *
  * @event           sAdvancedSelect.items                Dispatched when the items are setted of updated
  * @event           sAdvancedSelect.select               Dispatched when an item has been selected
  * @event           sAdvancedSelect.preselect            Dispatched when an item has been preselected
@@ -25,7 +45,7 @@ import type { TAdvancedSelectElementApi, TAdvancedSelectElementClasses, TAdvance
  * @event           sAdvancedSelect.open                 Dispatched when the dropdown is opened
  * @event           sAdvancedSelect.reset                Dispatched when the input is resetted
  * @event           sAdvancedSelect.loading              Dispatched when the element enterd in loading state
- *
+ * @event           sAdvancedSelect.loaded               Dispatched when the element exit the loading state
  *
  * @support         chromium
  * @support         firefox
@@ -40,8 +60,8 @@ import type { TAdvancedSelectElementApi, TAdvancedSelectElementClasses, TAdvance
  * npm i @lotsof/advancedSelect-component
  *
  * @install           js
- * import { define as __AdvancedSelectElementDefine } from '@lotsof/advancedSelect-component';
- * __AdvancedSelectElementDefine();
+ * import __SAdvancedSelectElement from '@lotsof/advancedSelect-component';
+ * __SAdvancedSelectElement.define();
  *
  * @example         html            Simple example
  * <template id="items">
@@ -52,8 +72,8 @@ import type { TAdvancedSelectElementApi, TAdvancedSelectElementClasses, TAdvance
  * </advancedSelect>
  *
  * @example         js
- * import { define } from '@lotsof/advancedSelect-component';
- * define();
+ * import __SAdvancedSelectElement from '@lotsof/advanced-select-element';
+ * __SAdvancedSelectElement.define('my-cool-filtrable-input');
  *
  * @example         html        Custom templates and items
  * <my-cool-filtrable-input>
@@ -61,40 +81,15 @@ import type { TAdvancedSelectElementApi, TAdvancedSelectElementClasses, TAdvance
  * </my-cool-filtrable-input>
  *
  * @example         js
- * import { define } from '@lotsof/advancedSelect-component';
- * define({
+ * import __SAdvancedSelectElement from '@lotsof/advanced-select-element';
+ * __SAdvancedSelectElement.define('my-cool-filtrable-input', {
  *     items: async () => {
  *         // you can get your items however you want
  *         // const request = await fetch('...');
  *         // const items = await request.json();
  *         return [{title: 'Hello', value: 'World'},{title: 'Plop', value:'Yop}];
- *     },
- *     templates: ({ type, html }) => {
- *         switch (type) {
- *             case 'item':
- *                 return html`
- *                     <li class="_item">
- *                         My title: ${item.title}
- *                     </li>
- *                 `;
- *                 break;
- *             case 'loading':
- *                 return html`
- *                     <li class="_loading">
- *                         Loading, please wait...
- *                     </li>
- *                 `;
- *                 break;
- *             case 'empty':
- *                 return html`
- *                     <li class="_empty">
- *                         No items found...
- *                     </li>
- *                 `;
- *                 break;
- *         }
- *     },
- * }, 'my-cool-filtrable-input');
+ *     }
+ * });
  *
  * @since           2.0.0
  * @author    Olivier Bossel <olivier.bossel@gmail.com> (https://coffeekraken.io)
@@ -119,7 +114,6 @@ export default class AdvancedSelectElement extends __LitElement {
     highlightable: string;
     templates?: (api: TAdvancedSelectElementApi) => any;
     closeTimeout: number;
-    interactive: boolean;
     notSelectable: boolean;
     maxItems: number;
     classes: TAdvancedSelectElementClasses;
@@ -162,8 +156,10 @@ export default class AdvancedSelectElement extends __LitElement {
     getPreselectedItem(): TAdvancedSelectElementItem;
     getSelectedItem(): TAdvancedSelectElementItem;
     getMatchItems(): TAdvancedSelectElementItem[];
-    open(): void;
-    close(): void;
+    _open(): void;
+    _close(): void;
+    focus(): void;
+    blur(): void;
     private _isLoadingTimeout;
     refreshItems(): Promise<void>;
     private _initItems;
